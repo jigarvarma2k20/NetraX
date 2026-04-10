@@ -1,0 +1,147 @@
+import { create } from 'zustand';
+import { SaveRepeater, GetRepeaters, UpdateRepeater, DeleteRepeater } from '../../wailsjs/go/main/App';
+import { domain } from '../../wailsjs/go/models';
+
+export const useRepeaterStore = create((set, get) => ({
+    tabs: [],
+    activeTabId: null,
+    loading: false,
+
+    loadTabs: async () => {
+        set({ loading: true });
+        try {
+            const stored = await GetRepeaters();
+            if (stored && stored.length > 0) {
+                // Convert stored (RepeaterRequest) to UI Tab format
+                // Backend: ID, Name, Method, URL, Header (JSON string), Body
+                const tabs = stored.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    // Reconstruct HTTPRequestDTO
+                    request: new domain.HTTPRequestDTO({
+                        method: s.method,
+                        url: s.url,
+                        header: s.header,
+                        body: s.body
+                    }),
+                    response: null,
+                    loading: false
+                }));
+                set({ tabs, activeTabId: tabs[0].id, loading: false });
+            } else {
+                // Default tab if empty
+                get().createTab();
+                set({ loading: false });
+            }
+        } catch (e) {
+            console.error("Failed to load repeater tabs:", e);
+            // Fallback
+            if (get().tabs.length === 0) get().createTab();
+            set({ loading: false });
+        }
+    },
+
+    setActiveTab: (id) => set({ activeTabId: id }),
+
+    createTab: async () => {
+        const newName = `Tab ${get().tabs.length + 1}`;
+        const method = "GET";
+        const url = "https://example.com";
+        const header = JSON.stringify({
+            "User-Agent": "NetraX/1.0",
+            "Accept": "*/*"
+        });
+        const body = "";
+
+        try {
+            // Save to DB first to get ID
+            const proto = "HTTP/1.1";
+            const id = await SaveRepeater(newName, method, url, proto, header, body);
+
+            const newTab = {
+                id: id,
+                name: newName,
+                request: new domain.HTTPRequestDTO({
+                    method,
+                    url,
+                    proto: "HTTP/1.1",
+                    header,
+                    body
+                }),
+                response: null,
+                loading: false
+            };
+
+            set(state => ({
+                tabs: [...state.tabs, newTab],
+                activeTabId: id
+            }));
+        } catch (e) {
+            console.error("Failed to create tab:", e);
+        }
+    },
+
+    closeTab: async (id) => {
+        const { tabs, activeTabId } = get();
+        if (tabs.length === 1) return; // Don't close last tab? Or maybe allow and create new clean one? Burp allows closing all.
+        // If we close last one, we should probably create a new one or show empty state.
+        // For now, mimic logic: if 1, don't close.
+
+        try {
+            await DeleteRepeater(id);
+
+            const newTabs = tabs.filter(t => t.id !== id);
+            let newActiveId = activeTabId;
+            if (activeTabId === id) {
+                newActiveId = newTabs[newTabs.length - 1].id;
+            }
+            set({ tabs: newTabs, activeTabId: newActiveId });
+        } catch (e) {
+            console.error("Failed to delete tab:", e);
+        }
+    },
+
+    updateTabRequest: async (id, reqDTO) => {
+        // Optimistic update
+        set(state => ({
+            tabs: state.tabs.map(t => t.id === id ? { ...t, request: reqDTO } : t)
+        }));
+    },
+
+    persistTab: async (id) => {
+        const tab = get().tabs.find(t => t.id === id);
+        if (!tab) return;
+        try {
+            await UpdateRepeater(
+                tab.id,
+                tab.name,
+                tab.request.method,
+                tab.request.url,
+                tab.request.proto || "HTTP/1.1",
+                typeof tab.request.header === 'string' ? tab.request.header : JSON.stringify(tab.request.header),
+                tab.request.body
+            );
+        } catch (e) {
+            console.error("Failed to persist tab:", e);
+        }
+    },
+
+    renameTab: async (id, newName) => {
+        set(state => ({
+            tabs: state.tabs.map(t => t.id === id ? { ...t, name: newName } : t)
+        }));
+        await get().persistTab(id);
+    },
+
+    setTabResponse: (id, response) => {
+        set(state => ({
+            tabs: state.tabs.map(t => t.id === id ? { ...t, response, loading: false } : t)
+        }));
+    },
+
+    setTabLoading: (id, loading) => {
+        set(state => ({
+            tabs: state.tabs.map(t => t.id === id ? { ...t, loading } : t)
+        }));
+    }
+}));

@@ -1,0 +1,49 @@
+# Project Specifics
+build/bin/
+bin/
+frontend/dist/
+frontend/node_modules/
+node_modules/
+
+# Wails / Go
+wails.json
+frontend/wailsjs/
+vendor/
+go.sum
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Databases (Captured Traffic)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+# Specific to local testing data
+*.sqlite
+*.log
+
+# Security / Certs
+# Important: Don't leak your tool's root CA if generated during dev
+*.crt
+*.key
+*.pem
+/certs/
+
+# Temp & OS
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+*.swp
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Environment
+.env
+.env.*.local
