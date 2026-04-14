@@ -6,8 +6,6 @@ frontend/node_modules/
 node_modules/
 
 # Wails / Go
-wails.json
-frontend/wailsjs/
 vendor/
 go.sum
 *.exe
@@ -47,3 +45,4 @@ Thumbs.db
 # Environment
 .env
 .env.*.local
+

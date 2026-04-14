@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "netrax",
+  "outputfilename": "netrax",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Jigar Varma",
+    "email": "71844973+jigarvarma2k20@users.noreply.github.com"
+  }
+}
