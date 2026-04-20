@@ -13,16 +13,19 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"wailshark/internal/core/ports"
 )
 
 type Settings struct {
-	ProxyPort int    `json:"proxyPort"`
-	ProxyAddr string `json:"proxyAddr"`
+	ProxyPort     int                  `json:"proxyPort"`
+	ProxyAddr     string               `json:"proxyAddr"`
+	ProxyBindings []ports.ProxyBinding `json:"proxyBindings,omitempty"`
 }
 
 var defaultSettings = Settings{
-	ProxyPort: 8080,
-	ProxyAddr: "127.0.0.1",
+	ProxyPort:     ports.DefaultProxyPort,
+	ProxyAddr:     ports.DefaultProxyAddress,
+	ProxyBindings: []ports.ProxyBinding{{Address: ports.DefaultProxyAddress, Port: ports.DefaultProxyPort}},
 }
 
 func GetConfigDir() (string, error) {
@@ -80,6 +83,18 @@ func LoadSettings() Settings {
 		log.Printf("Could not parse settings: %v", err)
 		return defaultSettings
 	}
+
+	resolved, err := ports.ResolveBindings(s.ProxyBindings, s.ProxyAddr, s.ProxyPort)
+	if err != nil {
+		log.Printf("Could not parse proxy bindings: %v", err)
+		return defaultSettings
+	}
+
+	first := ports.FirstBinding(resolved)
+	s.ProxyBindings = resolved
+	s.ProxyAddr = first.Address
+	s.ProxyPort = first.Port
+
 	return s
 }
 
@@ -88,6 +103,15 @@ func SaveSettings(s Settings) error {
 	if err != nil {
 		return err
 	}
+
+	resolved, err := ports.ResolveBindings(s.ProxyBindings, s.ProxyAddr, s.ProxyPort)
+	if err != nil {
+		return err
+	}
+	first := ports.FirstBinding(resolved)
+	s.ProxyBindings = resolved
+	s.ProxyAddr = first.Address
+	s.ProxyPort = first.Port
 
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
