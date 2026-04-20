@@ -16,6 +16,7 @@ import (
 	"wailshark/internal/adapters/persistence/sqlite"
 	"wailshark/internal/config"
 	"wailshark/internal/core/domain"
+	"wailshark/internal/core/ports"
 	"wailshark/internal/utils/parser"
 
 	"github.com/elazarl/goproxy"
@@ -23,7 +24,7 @@ import (
 )
 
 type ProxyHandler struct {
-	Port                        int             // Port on which the proxy server will listen
+	Bindings                    []ports.ProxyBinding
 	Ctx                         context.Context // Context for the proxy operations
 	DB                          *sqlite.DB
 	InterceptEnabled            atomic.Bool
@@ -31,7 +32,7 @@ type ProxyHandler struct {
 	PendingResponses            sync.Map // key: id (int64), value: chan InterceptAction
 	RequestsToInterceptResponse sync.Map // key: id (int64), value: bool
 	InterceptResponses          atomic.Bool
-	Server                      *http.Server
+	Servers                     map[string]*http.Server
 	serverMu                    sync.Mutex
 }
 
@@ -54,7 +55,7 @@ func (p *ProxyHandler) SetDB(db *sqlite.DB) {
 }
 
 func (p *ProxyHandler) New(port int) *ProxyHandler {
-	return &ProxyHandler{Port: port}
+	return &ProxyHandler{Bindings: []ports.ProxyBinding{{Address: ports.DefaultProxyAddress, Port: port}}}
 }
 
 func (p *ProxyHandler) SendToFrontend(event string, data any) {
@@ -95,17 +96,28 @@ func (p *ProxyHandler) SetContext(ctx context.Context) {
 }
 
 func (p *ProxyHandler) SetPort(port int) {
-	p.Port = port
+	p.SetDefaults()
+	p.Bindings[0].Port = port
 }
 
 func (p *ProxyHandler) GetPort() int {
-	return p.Port
+	p.SetDefaults()
+	return p.Bindings[0].Port
 }
 
 func (p *ProxyHandler) SetDefaults() {
-	if p.Port == 0 {
-		p.Port = 8080 // Default port for the proxy server
+	if len(p.Bindings) == 0 {
+		p.Bindings = []ports.ProxyBinding{{Address: ports.DefaultProxyAddress, Port: ports.DefaultProxyPort}}
 	}
+}
+
+func (p *ProxyHandler) GetBindings() []ports.ProxyBinding {
+	p.serverMu.Lock()
+	defer p.serverMu.Unlock()
+
+	bindings := make([]ports.ProxyBinding, len(p.Bindings))
+	copy(bindings, p.Bindings)
+	return bindings
 }
 
 // parseCA loads the CA cert and key from files and returns a *tls.Certificate
@@ -133,7 +145,15 @@ func (p *ProxyHandler) Start() {
 	p.SetDefaults()
 
 	settings := config.LoadSettings()
-	p.Port = settings.ProxyPort
+	resolvedBindings, err := ports.ResolveBindings(settings.ProxyBindings, settings.ProxyAddr, settings.ProxyPort)
+	if err != nil {
+		log.Printf("Invalid proxy bindings in settings, falling back to defaults: %v", err)
+		resolvedBindings = []ports.ProxyBinding{{Address: ports.DefaultProxyAddress, Port: ports.DefaultProxyPort}}
+	}
+
+	p.serverMu.Lock()
+	p.Bindings = resolvedBindings
+	p.serverMu.Unlock()
 
 	// Create a new proxy instance
 	proxy := goproxy.NewProxyHttpServer()
@@ -311,28 +331,45 @@ func (p *ProxyHandler) Start() {
 			return resp
 		})
 
-	// Start proxy server on port specified in the handler
-	bindAddr := fmt.Sprintf("%s:%d", settings.ProxyAddr, p.Port)
-	log.Println("Starting HTTP proxy on", bindAddr)
-
 	p.serverMu.Lock()
-	p.Server = &http.Server{
-		Addr:    bindAddr,
-		Handler: proxy,
+	p.Servers = make(map[string]*http.Server, len(resolvedBindings))
+	for _, binding := range resolvedBindings {
+		bindAddr := ports.ListenAddress(binding)
+		p.Servers[bindAddr] = &http.Server{
+			Addr:    bindAddr,
+			Handler: proxy,
+		}
+	}
+	servers := make([]*http.Server, 0, len(p.Servers))
+	for _, srv := range p.Servers {
+		servers = append(servers, srv)
 	}
 	p.serverMu.Unlock()
 
-	err = p.Server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Printf("Proxy server error: %v", err)
+	var wg sync.WaitGroup
+	for _, srv := range servers {
+		wg.Add(1)
+		go func(server *http.Server) {
+			defer wg.Done()
+			log.Println("Starting HTTP proxy on", server.Addr)
+			serveErr := server.ListenAndServe()
+			if serveErr != nil && serveErr != http.ErrServerClosed {
+				log.Printf("Proxy server error on %s: %v", server.Addr, serveErr)
+			}
+		}(srv)
 	}
+
+	wg.Wait()
 }
 
 func (p *ProxyHandler) Restart() {
 	p.serverMu.Lock()
-	if p.Server != nil {
-		p.Server.Close()
+	for bindAddr, server := range p.Servers {
+		if err := server.Close(); err != nil {
+			log.Printf("Failed to close proxy server on %s: %v", bindAddr, err)
+		}
 	}
+	p.Servers = nil
 	p.serverMu.Unlock()
 
 	go p.Start()

@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
-import { GetSettings, SaveSettings, GetCAInfo, RegenerateCA } from '../../wailsjs/go/main/App';
-import { Shield, Settings as SettingsIcon, Save, RefreshCw, AlertTriangle, Download, Check } from 'lucide-react';
+import { GetSettings, SaveSettings, GetCAInfo, RegenerateCA, CheckProxyBindingsAvailability } from '../../wailsjs/go/main/App';
+import { Shield, Settings as SettingsIcon, Save, RefreshCw, AlertTriangle, Download, Check, Plus, Trash2, XCircle } from 'lucide-react';
 import Modal from '../components/Modal';
 
 export default function SettingsPage() {
-    const [settings, setSettings] = useState({ proxyPort: 8080, proxyAddr: '127.0.0.1' });
+    const [settings, setSettings] = useState({
+        proxyPort: 8080,
+        proxyAddr: '127.0.0.1',
+        proxyBindings: [{ address: '127.0.0.1', port: 8080 }]
+    });
     const [caInfo, setCaInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [checkingBindings, setCheckingBindings] = useState(false);
+    const [bindingStatus, setBindingStatus] = useState({});
+    const [savedBindingsSignature, setSavedBindingsSignature] = useState('[]');
 
     // Modal state for CA regeneration
     const [showModal, setShowModal] = useState(false);
@@ -22,7 +29,23 @@ export default function SettingsPage() {
         setLoading(true);
         try {
             const s = await GetSettings();
-            setSettings(s || { proxyPort: 8080, proxyAddr: '127.0.0.1' });
+            const resolvedBindings = Array.isArray(s?.proxyBindings) && s.proxyBindings.length > 0
+                ? s.proxyBindings.map((b) => ({
+                    address: b.address || '127.0.0.1',
+                    port: parseInt(b.port) || 8080
+                }))
+                : [{
+                    address: s?.proxyAddr || '127.0.0.1',
+                    port: parseInt(s?.proxyPort) || 8080
+                }];
+
+            const primary = resolvedBindings[0] || { address: '127.0.0.1', port: 8080 };
+            setSettings({
+                proxyPort: parseInt(primary.port) || 8080,
+                proxyAddr: primary.address || '127.0.0.1',
+                proxyBindings: resolvedBindings
+            });
+            setSavedBindingsSignature(JSON.stringify(normalizeBindingsForCheck(resolvedBindings)));
             const ca = await GetCAInfo();
             setCaInfo(ca);
         } catch (e) {
@@ -31,19 +54,127 @@ export default function SettingsPage() {
         setLoading(false);
     };
 
+    const normalizeBindingsForCheck = (bindings) => {
+        const candidate = Array.isArray(bindings) && bindings.length > 0
+            ? bindings
+            : [{ address: '127.0.0.1', port: 8080 }];
+
+        return candidate.map((binding) => ({
+            address: (binding.address || '').trim() || '127.0.0.1',
+            port: parseInt(binding.port) || 8080
+        }));
+    };
+
+    const bindingKey = (binding) => {
+        const address = (binding.address || '').trim() || '127.0.0.1';
+        const port = parseInt(binding.port) || 8080;
+        return `${address}:${port}`;
+    };
+
+    const currentBindingsSignature = JSON.stringify(normalizeBindingsForCheck(settings.proxyBindings || []));
+    const hasUnsavedBindingChanges = currentBindingsSignature !== savedBindingsSignature;
+
+    const refreshBindingAvailability = async (bindings) => {
+        setCheckingBindings(true);
+        try {
+            const normalized = normalizeBindingsForCheck(bindings);
+            const result = await CheckProxyBindingsAvailability(normalized);
+            const map = {};
+            (result || []).forEach((item) => {
+                map[`${item.address}:${item.port}`] = item;
+            });
+            setBindingStatus(map);
+        } catch (e) {
+            console.error(e);
+        }
+        setCheckingBindings(false);
+    };
+
+    useEffect(() => {
+        if (loading) {
+            return;
+        }
+        const timer = setTimeout(() => {
+            refreshBindingAvailability(settings.proxyBindings || []);
+        }, 220);
+
+        return () => clearTimeout(timer);
+    }, [settings.proxyBindings, loading]);
+
     const handleSave = async () => {
         setSaving(true);
         try {
+            const cleanedBindings = (settings.proxyBindings || [])
+                .map((binding) => ({
+                    address: (binding.address || '').trim() || '127.0.0.1',
+                    port: parseInt(binding.port) || 8080
+                }))
+                .filter((binding) => binding.port >= 1 && binding.port <= 65535);
+
+            const nextBindings = cleanedBindings.length > 0
+                ? cleanedBindings
+                : [{ address: '127.0.0.1', port: 8080 }];
+
+            const primary = nextBindings[0];
             await SaveSettings({
-                proxyPort: parseInt(settings.proxyPort) || 8080,
-                proxyAddr: settings.proxyAddr
+                proxyPort: parseInt(primary.port) || 8080,
+                proxyAddr: primary.address || '127.0.0.1',
+                proxyBindings: nextBindings
             });
+            setSettings({
+                proxyPort: parseInt(primary.port) || 8080,
+                proxyAddr: primary.address || '127.0.0.1',
+                proxyBindings: nextBindings
+            });
+            setSavedBindingsSignature(JSON.stringify(normalizeBindingsForCheck(nextBindings)));
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (e) {
             console.error(e);
         }
         setSaving(false);
+    };
+
+    const updateBinding = (index, key, value) => {
+        setSettings((prev) => {
+            const nextBindings = [...(prev.proxyBindings || [])];
+            nextBindings[index] = {
+                ...nextBindings[index],
+                [key]: value
+            };
+
+            const primary = nextBindings[0] || { address: '127.0.0.1', port: 8080 };
+            return {
+                ...prev,
+                proxyBindings: nextBindings,
+                proxyAddr: primary.address,
+                proxyPort: primary.port
+            };
+        });
+    };
+
+    const addBinding = () => {
+        setSettings((prev) => ({
+            ...prev,
+            proxyBindings: [...(prev.proxyBindings || []), { address: '127.0.0.1', port: 8080 }]
+        }));
+    };
+
+    const removeBinding = (index) => {
+        setSettings((prev) => {
+            const currentBindings = [...(prev.proxyBindings || [])];
+            if (currentBindings.length <= 1) {
+                return prev;
+            }
+            currentBindings.splice(index, 1);
+            const primary = currentBindings[0] || { address: '127.0.0.1', port: 8080 };
+            return {
+                ...prev,
+                proxyBindings: currentBindings,
+                proxyAddr: primary.address,
+                proxyPort: primary.port
+            };
+        });
     };
 
     const handleRegenerateCA = async () => {
@@ -84,40 +215,97 @@ export default function SettingsPage() {
                         </h2>
                     </div>
                     <div className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
-                                    Bind Address
-                                </label>
-                                <input
-                                    type="text"
-                                    value={settings.proxyAddr}
-                                    onChange={(e) => setSettings({ ...settings, proxyAddr: e.target.value })}
-                                    className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2.5 focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none transition-all"
-                                    placeholder="127.0.0.1"
-                                />
-                                <p className="mt-1.5 text-xs text-text-secondary/60">
-                                    The interface IP address the proxy will listen on. Use 0.0.0.0 for all interfaces.
+                        <div className="space-y-4">
+                            {(settings.proxyBindings || []).map((binding, index) => {
+                                const status = bindingStatus[bindingKey(binding)];
+                                const title = status?.available
+                                    ? 'Available: address:port can be bound'
+                                    : (status?.error || (checkingBindings ? 'Checking availability...' : 'Availability unknown'));
+                                const showInlineError = !checkingBindings && status && !status.available && status.error;
+
+                                return (
+                                    <div key={`binding-${index}`} className="space-y-1">
+                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto_auto] gap-4 items-end">
+                                            <div>
+                                                <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
+                                                    Bind Address {index === 0 ? '(Primary)' : ''}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={binding.address}
+                                                    onChange={(e) => updateBinding(index, 'address', e.target.value)}
+                                                    className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2.5 focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none transition-all"
+                                                    placeholder="127.0.0.1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
+                                                    Listening Port
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={binding.port}
+                                                    onChange={(e) => updateBinding(index, 'port', e.target.value)}
+                                                    className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2.5 focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none transition-all"
+                                                    placeholder="8080"
+                                                    min="1"
+                                                    max="65535"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => removeBinding(index)}
+                                                disabled={(settings.proxyBindings || []).length <= 1}
+                                                className="h-[42px] px-3 rounded-lg border border-accent-red/40 text-accent-red hover:bg-accent-red/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                title="Remove binding"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+
+                                            {checkingBindings && !status ? (
+                                                <div className="h-[42px] flex items-center justify-center text-text-secondary" title={title}>
+                                                    <RefreshCw size={16} className="animate-spin" />
+                                                </div>
+                                            ) : status?.available ? (
+                                                <div className="h-[42px] flex items-center justify-center text-accent-green" title={title}>
+                                                    <Check size={16} />
+                                                </div>
+                                            ) : (
+                                                <div className="h-[42px] flex items-center justify-center text-accent-red" title={title}>
+                                                    <XCircle size={16} />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {showInlineError ? (
+                                            <p className="text-xs text-accent-red/90 md:pl-[calc(100%-220px)]">
+                                                {status.error}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
+
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-text-secondary/60">
+                                    Add multiple address:port listeners. Use 0.0.0.0 to listen on all interfaces.
                                 </p>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
-                                    Listening Port
-                                </label>
-                                <input
-                                    type="number"
-                                    value={settings.proxyPort}
-                                    onChange={(e) => setSettings({ ...settings, proxyPort: e.target.value })}
-                                    className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2.5 focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none transition-all"
-                                    placeholder="8080"
-                                />
-                                <p className="mt-1.5 text-xs text-text-secondary/60">
-                                    The port number the proxy will bind to (1-65535).
-                                </p>
+                                <button
+                                    onClick={addBinding}
+                                    className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-all"
+                                >
+                                    <Plus size={14} />
+                                    Add Binding
+                                </button>
                             </div>
                         </div>
 
                         <div className="flex justify-end pt-4 border-t border-white/[0.04]">
+                            {hasUnsavedBindingChanges ? (
+                                <div className="mr-auto flex items-center text-xs text-amber-300/90">
+                                    <AlertTriangle size={14} className="mr-1.5" />
+                                    Address/port updated. Save settings to apply changes.
+                                </div>
+                            ) : null}
                             <button
                                 onClick={handleSave}
                                 disabled={saving}

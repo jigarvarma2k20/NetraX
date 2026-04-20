@@ -14,6 +14,7 @@ import (
 	"wailshark/internal/adapters/proxy"
 	"wailshark/internal/config"
 	"wailshark/internal/core/domain"
+	"wailshark/internal/core/ports"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -249,6 +250,11 @@ func (a *App) SaveSettings(settings config.Settings) error {
 	}
 	a.Proxy.Restart()
 	return nil
+}
+
+func (a *App) CheckProxyBindingsAvailability(bindings []ports.ProxyBinding) []ports.BindingAvailability {
+	activeBindings := a.Proxy.GetBindings()
+	return ports.CheckAvailabilityWithActive(bindings, activeBindings)
 }
 
 type CAInfo struct {

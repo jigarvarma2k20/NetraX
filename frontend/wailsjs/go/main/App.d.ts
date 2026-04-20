@@ -4,6 +4,9 @@ import {domain} from '../models';
 import {main} from '../models';
 import {sqlite} from '../models';
 import {config} from '../models';
+import {ports} from '../models';
+
+export function CheckProxyBindingsAvailability(arg1:Array<ports.ProxyBinding>):Promise<Array<ports.BindingAvailability>>;
 
 export function DeleteRepeater(arg1:number):Promise<void>;
 
