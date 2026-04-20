@@ -11,8 +11,8 @@ export default function SettingsPage() {
     });
     const [caInfo, setCaInfo] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
+    const [saveState, setSaveState] = useState('idle'); // idle | dirty | saving | saved | error
+    const [saveError, setSaveError] = useState('');
     const [checkingBindings, setCheckingBindings] = useState(false);
     const [bindingStatus, setBindingStatus] = useState({});
     const [savedBindingsSignature, setSavedBindingsSignature] = useState('[]');
@@ -65,6 +65,82 @@ export default function SettingsPage() {
         }));
     };
 
+    const isWildcardAddress = (address) => {
+        const value = (address || '').trim();
+        return value === '0.0.0.0' || value === '::' || value === '[::]';
+    };
+
+    const isValidAddress = (address) => {
+        const value = (address || '').trim();
+        if (!value) {
+            return false;
+        }
+        if (value === 'localhost') {
+            return true;
+        }
+
+        const ipv4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+        const hostname = /^(?=.{1,253}$)(?!-)[a-zA-Z0-9-]{1,63}(\.(?!-)[a-zA-Z0-9-]{1,63})*$/;
+        const ipv6Loose = /^\[?[0-9a-fA-F:]+\]?$/;
+
+        return ipv4.test(value) || hostname.test(value) || ipv6Loose.test(value);
+    };
+
+    const buildBindingsValidation = (bindings) => {
+        const rows = Array.isArray(bindings) && bindings.length > 0
+            ? bindings
+            : [{ address: '127.0.0.1', port: 8080 }];
+
+        const errorsByIndex = {};
+        const normalizedRows = rows.map((binding) => ({
+            address: (binding.address || '').trim(),
+            port: Number(binding.port)
+        }));
+
+        normalizedRows.forEach((row, index) => {
+            const rowErrors = [];
+            if (!row.address) {
+                rowErrors.push('Address is required.');
+            } else if (!isValidAddress(row.address)) {
+                rowErrors.push('Address format is invalid.');
+            }
+
+            if (!Number.isInteger(row.port) || row.port < 1 || row.port > 65535) {
+                rowErrors.push('Port must be an integer between 1 and 65535.');
+            }
+
+            if (rowErrors.length > 0) {
+                errorsByIndex[index] = rowErrors;
+            }
+        });
+
+        for (let i = 0; i < normalizedRows.length; i += 1) {
+            for (let j = i + 1; j < normalizedRows.length; j += 1) {
+                const a = normalizedRows[i];
+                const b = normalizedRows[j];
+
+                const aValid = !errorsByIndex[i];
+                const bValid = !errorsByIndex[j];
+                if (!aValid || !bValid) {
+                    continue;
+                }
+
+                if (a.address === b.address && a.port === b.port) {
+                    errorsByIndex[i] = [...(errorsByIndex[i] || []), 'Duplicate binding found.'];
+                    errorsByIndex[j] = [...(errorsByIndex[j] || []), 'Duplicate binding found.'];
+                }
+
+                if (a.port === b.port && (isWildcardAddress(a.address) || isWildcardAddress(b.address))) {
+                    errorsByIndex[i] = [...(errorsByIndex[i] || []), 'Wildcard address conflicts with another binding on this port.'];
+                    errorsByIndex[j] = [...(errorsByIndex[j] || []), 'Wildcard address conflicts with another binding on this port.'];
+                }
+            }
+        }
+
+        const hasErrors = Object.keys(errorsByIndex).length > 0;
+        return { errorsByIndex, hasErrors };
+    };
+
     const bindingKey = (binding) => {
         const address = (binding.address || '').trim() || '127.0.0.1';
         const port = parseInt(binding.port) || 8080;
@@ -73,6 +149,18 @@ export default function SettingsPage() {
 
     const currentBindingsSignature = JSON.stringify(normalizeBindingsForCheck(settings.proxyBindings || []));
     const hasUnsavedBindingChanges = currentBindingsSignature !== savedBindingsSignature;
+    const bindingValidation = buildBindingsValidation(settings.proxyBindings || []);
+
+    const hasKnownUnavailableBinding = normalizeBindingsForCheck(settings.proxyBindings || []).some((binding) => {
+        const status = bindingStatus[bindingKey(binding)];
+        return status && !status.available;
+    });
+
+    const canSave = hasUnsavedBindingChanges
+        && !bindingValidation.hasErrors
+        && !hasKnownUnavailableBinding
+        && !checkingBindings
+        && saveState !== 'saving';
 
     const refreshBindingAvailability = async (bindings) => {
         setCheckingBindings(true);
@@ -94,17 +182,29 @@ export default function SettingsPage() {
         if (loading) {
             return;
         }
+
+        if (bindingValidation.hasErrors) {
+            setCheckingBindings(false);
+            setBindingStatus({});
+            return;
+        }
+
         const timer = setTimeout(() => {
             refreshBindingAvailability(settings.proxyBindings || []);
         }, 220);
 
         return () => clearTimeout(timer);
-    }, [settings.proxyBindings, loading]);
+    }, [settings.proxyBindings, loading, bindingValidation.hasErrors]);
 
     const handleSave = async () => {
-        setSaving(true);
+        if (!canSave) {
+            return;
+        }
+
+        setSaveState('saving');
+        setSaveError('');
         try {
-            const cleanedBindings = (settings.proxyBindings || [])
+            const cleanedBindings = normalizeBindingsForCheck(settings.proxyBindings || [])
                 .map((binding) => ({
                     address: (binding.address || '').trim() || '127.0.0.1',
                     port: parseInt(binding.port) || 8080
@@ -127,12 +227,15 @@ export default function SettingsPage() {
                 proxyBindings: nextBindings
             });
             setSavedBindingsSignature(JSON.stringify(normalizeBindingsForCheck(nextBindings)));
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
+            setSaveState('saved');
+            setTimeout(() => {
+                setSaveState('idle');
+            }, 1800);
         } catch (e) {
             console.error(e);
+            setSaveState('error');
+            setSaveError(e?.message || 'Failed to save settings.');
         }
-        setSaving(false);
     };
 
     const updateBinding = (index, key, value) => {
@@ -151,6 +254,10 @@ export default function SettingsPage() {
                 proxyPort: primary.port
             };
         });
+        if (saveState !== 'saving') {
+            setSaveState('dirty');
+            setSaveError('');
+        }
     };
 
     const addBinding = () => {
@@ -158,6 +265,10 @@ export default function SettingsPage() {
             ...prev,
             proxyBindings: [...(prev.proxyBindings || []), { address: '127.0.0.1', port: 8080 }]
         }));
+        if (saveState !== 'saving') {
+            setSaveState('dirty');
+            setSaveError('');
+        }
     };
 
     const removeBinding = (index) => {
@@ -175,6 +286,10 @@ export default function SettingsPage() {
                 proxyPort: primary.port
             };
         });
+        if (saveState !== 'saving') {
+            setSaveState('dirty');
+            setSaveError('');
+        }
     };
 
     const handleRegenerateCA = async () => {
@@ -192,6 +307,14 @@ export default function SettingsPage() {
     if (loading) {
         return <div className="flex-1 bg-background-dark flex items-center justify-center text-text-secondary">Loading...</div>;
     }
+
+    const saveLabel = saveState === 'saving'
+        ? 'Saving...'
+        : saveState === 'saved'
+            ? 'Saved & Restarted'
+            : saveState === 'error'
+                ? 'Retry Save'
+                : 'Save Settings';
 
     return (
         <div className="flex-1 bg-background-dark p-8 overflow-y-auto w-full h-full custom-scrollbar">
@@ -221,7 +344,11 @@ export default function SettingsPage() {
                                 const title = status?.available
                                     ? 'Available: address:port can be bound'
                                     : (status?.error || (checkingBindings ? 'Checking availability...' : 'Availability unknown'));
-                                const showInlineError = !checkingBindings && status && !status.available && status.error;
+                                const validationMessage = bindingValidation.errorsByIndex[index]?.[0];
+                                const availabilityError = !checkingBindings && status && !status.available && status.error
+                                    ? status.error
+                                    : '';
+                                const inlineErrorMessage = validationMessage || availabilityError;
 
                                 return (
                                     <div key={`binding-${index}`} className="space-y-1">
@@ -276,9 +403,9 @@ export default function SettingsPage() {
                                             )}
                                         </div>
 
-                                        {showInlineError ? (
-                                            <p className="text-xs text-accent-red/90 md:pl-[calc(100%-220px)]">
-                                                {status.error}
+                                        {inlineErrorMessage ? (
+                                            <p className="text-xs text-accent-red/90">
+                                                {inlineErrorMessage}
                                             </p>
                                         ) : null}
                                     </div>
@@ -300,25 +427,36 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="flex justify-end pt-4 border-t border-white/[0.04]">
-                            {hasUnsavedBindingChanges ? (
+                            {bindingValidation.hasErrors ? (
+                                <div className="mr-auto flex items-center text-xs text-accent-red/90">
+                                    <AlertTriangle size={14} className="mr-1.5" />
+                                    Fix invalid binding values to save settings.
+                                </div>
+                            ) : hasUnsavedBindingChanges ? (
                                 <div className="mr-auto flex items-center text-xs text-amber-300/90">
                                     <AlertTriangle size={14} className="mr-1.5" />
                                     Address/port updated. Save settings to apply changes.
                                 </div>
                             ) : null}
+                            {saveState === 'error' && saveError ? (
+                                <div className="mr-3 flex items-center text-xs text-accent-red/90">
+                                    <XCircle size={14} className="mr-1.5" />
+                                    {saveError}
+                                </div>
+                            ) : null}
                             <button
                                 onClick={handleSave}
-                                disabled={saving}
+                                disabled={!canSave}
                                 className="flex items-center gap-2 px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-hover transition-all shadow-lg shadow-primary/25 disabled:opacity-50"
                             >
-                                {saving ? (
+                                {saveState === 'saving' ? (
                                     <RefreshCw size={16} className="animate-spin" />
-                                ) : saved ? (
+                                ) : saveState === 'saved' ? (
                                     <Check size={16} />
                                 ) : (
                                     <Save size={16} />
                                 )}
-                                {saved ? "Saved & Restarted" : "Save Settings"}
+                                {saveLabel}
                             </button>
                         </div>
                     </div>
