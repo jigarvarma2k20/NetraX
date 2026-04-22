@@ -48,12 +48,14 @@ export default function RootLayout() {
     return (
         <div className="flex flex-col h-screen w-full bg-background-dark text-text-primary font-sans selection:bg-primary/20">
             <Navbar />
-            <main className="flex-1 overflow-hidden relative">
-                <Outlet />
+            <main className="flex-1 overflow-hidden relative px-4 pb-4 pt-4">
+                <div className="h-full w-full overflow-hidden">
+                    <Outlet />
+                </div>
             </main>
 
             {/* Status Bar */}
-            <footer className="h-6 bg-[#0c101c] border-t border-white/[0.06] flex items-center px-4 text-[10px] text-text-secondary/60 shrink-0 select-none">
+            <footer className="h-6 bg-[#0c101c] border-t border-white/6 flex items-center px-4 text-[10px] text-text-secondary/60 shrink-0 select-none">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                         <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />

@@ -15,6 +15,7 @@ export default function MessageEditor({
     const [matchIndex, setMatchIndex] = useState(0);
 
     const textareaRef = useRef(null);
+    const shouldJumpToMatchRef = useRef(false);
 
     const matches = useMemo(() => {
         if (!searchTerm || !data) return [];
@@ -35,14 +36,28 @@ export default function MessageEditor({
     }, [data, searchTerm, useRegex]);
 
     const nextMatch = () => {
-        setMatchIndex((prev) => (prev + 1) % matches.length);
+        if (matches.length === 0) return;
+        shouldJumpToMatchRef.current = true;
+        setMatchIndex((prev) => {
+            const safePrev = Number.isFinite(prev) ? prev : 0;
+            return (safePrev + 1) % matches.length;
+        });
     };
 
     const prevMatch = () => {
-        setMatchIndex((prev) => (prev - 1 + matches.length) % matches.length);
+        if (matches.length === 0) return;
+        shouldJumpToMatchRef.current = true;
+        setMatchIndex((prev) => {
+            const safePrev = Number.isFinite(prev) ? prev : 0;
+            return (safePrev - 1 + matches.length) % matches.length;
+        });
     };
 
     useEffect(() => {
+        if (!shouldJumpToMatchRef.current) {
+            return;
+        }
+
         if (matches.length > 0 && textareaRef.current) {
             const current = matches[matchIndex];
             if (current) {
@@ -51,11 +66,26 @@ export default function MessageEditor({
                 el.setSelectionRange(current.start, current.end);
             }
         }
+        shouldJumpToMatchRef.current = false;
     }, [matchIndex, matches]);
 
     useEffect(() => {
         setMatchIndex(0);
     }, [searchTerm]);
+
+    useEffect(() => {
+        if (matches.length === 0) {
+            setMatchIndex(0);
+            return;
+        }
+
+        setMatchIndex((prev) => {
+            if (!Number.isFinite(prev) || prev < 0 || prev >= matches.length) {
+                return 0;
+            }
+            return prev;
+        });
+    }, [matches.length]);
 
     return (
         <div className="flex flex-col h-full bg-background-dark text-sm font-mono overflow-hidden">
@@ -133,6 +163,8 @@ export default function MessageEditor({
                     onChange={e => setSearchTerm(e.target.value)}
                     onKeyDown={e => {
                         if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (matches.length === 0) return;
                             if (e.shiftKey) prevMatch();
                             else nextMatch();
                         }
@@ -158,7 +190,7 @@ export default function MessageEditor({
                         <button onClick={nextMatch} className="p-0.5 hover:bg-white/10 rounded text-text-secondary">
                             <ChevronDown size={14} />
                         </button>
-                        <div className="text-[10px] text-text-secondary/60 px-1 min-w-[50px] text-center font-mono">
+                        <div className="text-[10px] text-text-secondary/60 px-1 min-w-12.5 text-center font-mono">
                             {matches.length === 0 ? "0/0" : `${matchIndex + 1}/${matches.length}`}
                         </div>
                     </div>

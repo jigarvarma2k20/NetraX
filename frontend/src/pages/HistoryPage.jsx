@@ -11,6 +11,7 @@ export default function HistoryPage() {
   const loadMore = useHistoryStore(state => state.loadMore);
   const hasMore = useHistoryStore(state => state.hasMore);
   const startListening = useHistoryStore(state => state.startListening);
+  const reset = useHistoryStore(state => state.reset);
 
   useEffect(() => {
     startListening();
@@ -58,7 +59,22 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden h-full">
-      <FilterBar value={filter} onChange={setFilter} />
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <FilterBar value={filter} onChange={setFilter} />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            reset();
+            setSelected(null);
+          }}
+          className="shrink-0 rounded-md border border-white/8 bg-white/2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/6 hover:text-white"
+          title="Clear list"
+        >
+          Clear
+        </button>
+      </div>
 
       <div ref={containerRef} className="flex-1 flex flex-col relative overflow-hidden">
         {/* Top Half: Traffic Table */}
@@ -79,7 +95,7 @@ export default function HistoryPage() {
         {selected && (
           <div
             onMouseDown={startResize}
-            className="w-full h-[3px] bg-white/[0.04] hover:bg-primary cursor-row-resize z-30 transition-colors"
+            className="w-full h-0.75 bg-white/4 hover:bg-primary cursor-row-resize z-30 transition-colors"
           />
         )}
 
@@ -92,7 +108,7 @@ export default function HistoryPage() {
             <Inspector txn={selected} />
             <button
               onClick={() => setSelected(null)}
-              className="absolute top-2 right-4 p-[5px] bg-transparent hover:bg-white/10 text-text-secondary hover:text-white rounded transition-colors z-50"
+              className="absolute top-2 right-4 p-1.25 bg-transparent hover:bg-white/10 text-text-secondary hover:text-white rounded transition-colors z-50"
               title="Close Inspector"
             >
               <X size={16} />
