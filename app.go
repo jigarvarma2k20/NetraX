@@ -15,15 +15,17 @@ import (
 	"wailshark/internal/config"
 	"wailshark/internal/core/domain"
 	"wailshark/internal/core/ports"
+	"wailshark/internal/mcp"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
 type App struct {
-	ctx   context.Context
-	Proxy *proxy.ProxyHandler
-	DB    *sqlite.DB
+	ctx       context.Context
+	Proxy     *proxy.ProxyHandler
+	DB        *sqlite.DB
+	MCPServer *mcp.MCPServer
 }
 
 // NewApp creates a new App application struct
@@ -32,10 +34,61 @@ func NewApp() *App {
 	if err != nil {
 		panic(err)
 	}
-	return &App{
+	appInstance := &App{
 		Proxy: proxy.NewProxyHandler(db),
 		DB:    db,
 	}
+
+	appInstance.MCPServer = mcp.NewMCPServer(
+		func(limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+			return appInstance.GetRequests(limit, offset)
+		},
+		func(id int64) (*domain.HTTPTransactionDTO, error) {
+			return appInstance.GetRequestByID(id, false)
+		},
+		func(req domain.HTTPRequestDTO) (*domain.HTTPTransactionDTO, error) {
+			return appInstance.ExecuteRequest(req)
+		},
+		func(enabled bool) {
+			appInstance.SetIntercept(enabled)
+		},
+		func(id int64, modifiedReq domain.HTTPRequestDTO) {
+			appInstance.ForwardRequest(id, modifiedReq)
+		},
+		func() ([]domain.HTTPTransactionDTO, error) {
+			return appInstance.GetInterceptedRequests()
+		},
+		func(id int64) {
+			appInstance.DropRequest(id)
+		},
+		func() ([]domain.HTTPTransactionDTO, error) {
+			return appInstance.GetInterceptedResponses()
+		},
+		func(id int64, modifiedResp domain.HTTPResponseDTO) {
+			appInstance.ForwardResponse(id, modifiedResp)
+		},
+		func(id int64) {
+			appInstance.DropResponse(id)
+		},
+		func(id int64, modifiedReq domain.HTTPRequestDTO) {
+			appInstance.ForwardAndInterceptResponse(id, modifiedReq)
+		},
+		func() {
+			appInstance.ForwardAll()
+		},
+		func() string {
+			settings := appInstance.GetSettings()
+			bytes, _ := json.MarshalIndent(settings, "", "  ")
+			return string(bytes)
+		},
+		func() string {
+			caInfo := appInstance.GetCAInfo()
+			bytes, _ := json.MarshalIndent(caInfo, "", "  ")
+			return string(bytes)
+		},
+	)
+
+	return appInstance
 }
 
 // startup is called when the app starts.
@@ -70,6 +123,18 @@ func (a *App) GetRequests(limit, offset int) ([]domain.HTTPTransactionDTO, error
 	reqs, err := a.DB.GetRequests(limit, offset)
 	log.Printf("App.GetRequests called: limit=%d, offset=%d. Returning %d requests, err: %v", limit, offset, len(reqs), err)
 	return reqs, err
+}
+
+func (a *App) StartMCPServer(address string, port int) error {
+	return a.MCPServer.Start(address, port)
+}
+
+func (a *App) StopMCPServer() error {
+	return a.MCPServer.Stop()
+}
+
+func (a *App) GetMCPStatus() bool {
+	return a.MCPServer.IsRunning()
 }
 
 func (a *App) ForwardRequest(id int64, modifiedReq domain.HTTPRequestDTO) {
@@ -329,4 +394,28 @@ func (a *App) ResetProject() {
 	}
 	a.DB = newDB
 	a.Proxy.SetDB(newDB)
+}
+
+func (a *App) GetInterceptedRequests() ([]domain.HTTPTransactionDTO, error) {
+	ids := a.Proxy.GetPendingRequests()
+	var reqs []domain.HTTPTransactionDTO
+	for _, id := range ids {
+		req, err := a.DB.GetRequestByID(id)
+		if err == nil && req != nil {
+			reqs = append(reqs, *req)
+		}
+	}
+	return reqs, nil
+}
+
+func (a *App) GetInterceptedResponses() ([]domain.HTTPTransactionDTO, error) {
+	ids := a.Proxy.GetPendingResponses()
+	var reqs []domain.HTTPTransactionDTO
+	for _, id := range ids {
+		req, err := a.DB.GetRequestByID(id)
+		if err == nil && req != nil {
+			reqs = append(reqs, *req)
+		}
+	}
+	return reqs, nil
 }

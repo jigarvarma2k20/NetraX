@@ -30,6 +30,12 @@ export function ForwardResponse(arg1:number,arg2:domain.HTTPResponseDTO):Promise
 
 export function GetCAInfo():Promise<main.CAInfo>;
 
+export function GetInterceptedRequests():Promise<Array<domain.HTTPTransactionDTO>>;
+
+export function GetInterceptedResponses():Promise<Array<domain.HTTPTransactionDTO>>;
+
+export function GetMCPStatus():Promise<boolean>;
+
 export function GetRepeaters():Promise<Array<sqlite.RepeaterRequest>>;
 
 export function GetRequestByID(arg1:number,arg2:boolean):Promise<domain.HTTPTransactionDTO>;
@@ -51,5 +57,9 @@ export function SaveRepeater(arg1:string,arg2:string,arg3:string,arg4:string,arg
 export function SaveSettings(arg1:config.Settings):Promise<void>;
 
 export function SetIntercept(arg1:boolean):Promise<void>;
+
+export function StartMCPServer(arg1:string,arg2:number):Promise<void>;
+
+export function StopMCPServer():Promise<void>;
 
 export function UpdateRepeater(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string):Promise<void>;

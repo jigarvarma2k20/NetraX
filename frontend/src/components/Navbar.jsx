@@ -151,6 +151,7 @@ export default function Navbar() {
                     <InternalNavItem to="/repeater" label="Repeater" icon="repeat" />
                     <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
                     <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
+                    <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
                 </div>
 
                 <div className="flex-1" />
@@ -177,7 +178,8 @@ import {
     Repeat,
     Code2,
     GitCompareArrows,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    Bot
 } from 'lucide-react';
 
 const InternalNavItem = ({ to, icon, label, badge }) => {
@@ -192,7 +194,8 @@ const InternalNavItem = ({ to, icon, label, badge }) => {
         'repeat': Repeat,
         'code-2': Code2,
         'git-compare-arrows': GitCompareArrows,
-        'settings': SettingsIcon
+        'settings': SettingsIcon,
+        'bot': Bot
     };
     const IconComp = IconMap[icon] || Code2;
 
