@@ -433,3 +433,27 @@ func (p *ProxyHandler) HandleResponseAction(id int64, actionType string, modifie
 		log.Printf("Failed to find pending response channel for ID %d", id)
 	}
 }
+
+// GetPendingRequests returns all pending HTTP requests currently blocked by the proxy
+func (p *ProxyHandler) GetPendingRequests() []int64 {
+	var ids []int64
+	p.PendingRequests.Range(func(key, value any) bool {
+if id, ok := key.(int64); ok {
+			ids = append(ids, id)
+		}
+		return true
+	})
+	return ids
+}
+
+// GetPendingResponses returns all pending HTTP responses currently blocked by the proxy
+func (p *ProxyHandler) GetPendingResponses() []int64 {
+	var ids []int64
+	p.PendingResponses.Range(func(key, value any) bool {
+if id, ok := key.(int64); ok {
+			ids = append(ids, id)
+		}
+		return true
+	})
+	return ids
+}

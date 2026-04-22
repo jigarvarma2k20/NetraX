@@ -50,6 +50,18 @@ export function GetCAInfo() {
   return window['go']['main']['App']['GetCAInfo']();
 }
 
+export function GetInterceptedRequests() {
+  return window['go']['main']['App']['GetInterceptedRequests']();
+}
+
+export function GetInterceptedResponses() {
+  return window['go']['main']['App']['GetInterceptedResponses']();
+}
+
+export function GetMCPStatus() {
+  return window['go']['main']['App']['GetMCPStatus']();
+}
+
 export function GetRepeaters() {
   return window['go']['main']['App']['GetRepeaters']();
 }
@@ -92,6 +104,14 @@ export function SaveSettings(arg1) {
 
 export function SetIntercept(arg1) {
   return window['go']['main']['App']['SetIntercept'](arg1);
+}
+
+export function StartMCPServer(arg1, arg2) {
+  return window['go']['main']['App']['StartMCPServer'](arg1, arg2);
+}
+
+export function StopMCPServer() {
+  return window['go']['main']['App']['StopMCPServer']();
 }
 
 export function UpdateRepeater(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
