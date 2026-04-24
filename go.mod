@@ -1,4 +1,4 @@
-module wailshark
+module github.com/jigarvarma2k20/netrax
 
 go 1.25.5
 

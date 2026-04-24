@@ -14,11 +14,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"wailshark/internal/adapters/persistence/sqlite"
-	"wailshark/internal/config"
-	"wailshark/internal/core/domain"
-	"wailshark/internal/core/ports"
-	"wailshark/internal/utils/parser"
+
+	"github.com/jigarvarma2k20/netrax/internal/adapters/persistence/sqlite"
+	"github.com/jigarvarma2k20/netrax/internal/config"
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
+	"github.com/jigarvarma2k20/netrax/internal/core/ports"
+	"github.com/jigarvarma2k20/netrax/internal/utils/parser"
 
 	"github.com/elazarl/goproxy"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
