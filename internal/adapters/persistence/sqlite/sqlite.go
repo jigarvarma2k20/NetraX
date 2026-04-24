@@ -3,7 +3,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"wailshark/internal/core/domain"
+
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
 
 	_ "github.com/mattn/go-sqlite3"
 )

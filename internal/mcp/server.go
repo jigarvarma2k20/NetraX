@@ -12,7 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"wailshark/internal/core/domain"
+
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
 
 	"github.com/mandolyte/mdtopdf"
 	"github.com/mark3labs/mcp-go/mcp"

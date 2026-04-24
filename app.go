@@ -10,12 +10,13 @@ import (
 	"os"
 	"strings"
 	"time"
-	"wailshark/internal/adapters/persistence/sqlite"
-	"wailshark/internal/adapters/proxy"
-	"wailshark/internal/config"
-	"wailshark/internal/core/domain"
-	"wailshark/internal/core/ports"
-	"wailshark/internal/mcp"
+
+	"github.com/jigarvarma2k20/netrax/internal/adapters/persistence/sqlite"
+	"github.com/jigarvarma2k20/netrax/internal/adapters/proxy"
+	"github.com/jigarvarma2k20/netrax/internal/config"
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
+	"github.com/jigarvarma2k20/netrax/internal/core/ports"
+	"github.com/jigarvarma2k20/netrax/internal/mcp"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"wailshark/internal/utils/parser"
+
+	"github.com/jigarvarma2k20/netrax/internal/utils/parser"
 )
 
 type HTTPTransactionDTO struct {
