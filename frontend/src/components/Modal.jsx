@@ -7,6 +7,7 @@ export default function Modal({
     onConfirm,
     title,
     message,
+    children,
     confirmText = "Confirm",
     cancelText = "Cancel",
     type = "info",
@@ -61,7 +62,7 @@ export default function Modal({
 
                 {/* Body */}
                 <div className="p-6 text-text-secondary text-sm leading-relaxed">
-                    {message}
+                    {children || message}
                 </div>
 
                 {/* Footer */}

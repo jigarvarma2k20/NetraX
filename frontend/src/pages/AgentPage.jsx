@@ -3,12 +3,16 @@ import { AgentChat, GetAgentHistory, ClearAgentHistory } from '../../wailsjs/go/
 import { EventsOn } from '../../wailsjs/runtime/runtime';
 import { Bot, Send, Settings, User, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import Modal from '../components/Modal';
 
 export default function AgentPage() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+
     // Config state
     const [config, setConfig] = useState(() => {
         const stored = localStorage.getItem('agent_config');
@@ -18,7 +22,7 @@ export default function AgentPage() {
             model: 'llama3:latest'
         };
     });
-    
+
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -67,14 +71,14 @@ export default function AgentPage() {
 
     const sendMessage = async () => {
         if (!input.trim()) return;
-        
+
         const userMsg = input;
         setInput('');
-        
+
         const newHistory = [...messages.filter(m => m.role === 'user' || m.role === 'assistant')];
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setLoading(true);
-        
+
         try {
             const finalHistory = await AgentChat(config, newHistory, userMsg);
             // finalHistory includes all old messages + the new usermsg & assistant reply
@@ -93,16 +97,23 @@ export default function AgentPage() {
 
     return (
         <div className="flex-1 bg-background-dark p-6 overflow-hidden flex flex-col md:flex-row gap-6 w-full h-full">
-            
+
             {/* Chat Window */}
             <div className="flex-1 flex flex-col glass border border-white/[0.04] rounded-xl overflow-hidden shadow-2xl h-full">
-                <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c]">
+                <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c] flex items-center justify-between shadow-sm z-10">
                     <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                        <Bot size={18} className="text-primary" />
+                        <Bot size={18} className="text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]" />
                         NetraX AI Agent
                     </h2>
+                    <button
+                        onClick={() => setIsConfigOpen(true)}
+                        className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white transition-all ring-1 ring-white/5 hover:ring-white/10 shadow-lg"
+                        title="LLM Configuration"
+                    >
+                        <Settings size={16} />
+                    </button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                     {messages.length === 0 && (
                         <div className="text-center text-text-secondary/50 mt-10">
@@ -120,12 +131,37 @@ export default function AgentPage() {
                             )}>
                                 {msg.role === 'user' ? <User size={14} className="text-background-dark" /> : <Bot size={14} className={msg.role === 'system' ? 'text-text-secondary' : 'text-primary'} />}
                             </div>
-                            
+
                             <div className={clsx(
-                                "p-4 rounded-xl text-sm whitespace-pre-wrap word-break shadow-md",
-                                msg.role === 'user' ? "bg-primary text-background-dark font-medium" : msg.role === 'system' ? "bg-text-secondary/10 text-text-secondary italic text-xs" : "bg-panel-dark text-text-primary border border-white/5"
+                                "p-4 rounded-xl text-sm shadow-md",
+                                msg.role === 'user' ? "bg-primary text-background-dark font-medium rounded-tr-sm" : msg.role === 'system' ? "bg-text-secondary/10 text-text-secondary italic text-xs rounded-tl-sm w-full" : "bg-panel-dark text-text-primary border border-white/5 rounded-tl-sm w-full overflow-hidden"
                             )}>
-                                {msg.content}
+                                {msg.role === 'assistant' ? (
+                                    <div className="w-full markdown-body whitespace-pre-wrap break-words">
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
+                                                pre: ({ node, ...props }) => <div className="bg-[#05070d] p-3 rounded-lg overflow-x-auto my-2 border border-white/5 shadow-inner"><pre {...props} /></div>,
+                                                code: ({ node, inline, ...props }) =>
+                                                    inline
+                                                        ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+                                                        : <code className="text-xs text-text-secondary font-mono" {...props} />,
+                                                ul: ({ node, ...props }) => <ul className="list-disc ml-5 my-2 space-y-1" {...props} />,
+                                                ol: ({ node, ...props }) => <ol className="list-decimal ml-5 my-2 space-y-1" {...props} />,
+                                                li: ({ node, ...props }) => <li className="leading-snug" {...props} />,
+                                                h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+                                                h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-white mb-2 mt-3" {...props} />,
+                                                h3: ({ node, ...props }) => <h3 className="text-sm font-medium text-white mb-1 mt-2" {...props} />,
+                                                a: ({ node, ...props }) => <a className="text-primary hover:underline transition-colors" {...props} />
+                                            }}
+                                        >
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : (
+                                    <div className="whitespace-pre-wrap word-break">{msg.content}</div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -136,14 +172,14 @@ export default function AgentPage() {
                             </div>
                             <div className="p-4 rounded-xl text-sm bg-panel-dark text-text-primary border border-white/5 shadow-md flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-primary animate-bounce"></span>
-                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '0.2s'}}></span>
-                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '0.4s'}}></span>
+                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.4s' }}></span>
                             </div>
                         </div>
                     )}
                     <div ref={messagesEndRef} />
                 </div>
-                
+
                 <div className="p-4 bg-[#0c101c] border-t border-white/[0.04]">
                     <div className="flex bg-background-dark border border-panel-border rounded-lg overflow-hidden focus-within:border-primary transition-colors">
                         <input
@@ -155,8 +191,8 @@ export default function AgentPage() {
                             placeholder="Ask agent to get intercepted requests or settings..."
                             className="flex-1 bg-transparent px-4 py-3 outline-none text-sm text-white disabled:opacity-50"
                         />
-                        <button 
-                            onClick={sendMessage} 
+                        <button
+                            onClick={sendMessage}
                             disabled={loading || !input.trim()}
                             className="px-4 py-3 bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
                         >
@@ -166,61 +202,61 @@ export default function AgentPage() {
                 </div>
             </div>
 
-            {/* Config Sidebar */}
-            <div className="w-full md:w-80 flex flex-col gap-6">
-                <div className="glass border border-white/[0.04] rounded-xl overflow-hidden shadow-2xl">
-                    <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c]">
-                        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                            <Settings size={18} className="text-primary" />
-                            LLM Configuration
-                        </h2>
+            <Modal
+                isOpen={isConfigOpen}
+                onClose={() => setIsConfigOpen(false)}
+                title="LLM Configuration"
+                cancelText="Close"
+                type="info"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Provider / Base URL</label>
+                        <input
+                            type="text"
+                            value={config.baseUrl}
+                            onChange={e => setConfig({ ...config, baseUrl: e.target.value })}
+                            placeholder="Standard OpenAI, Local/Cloud Ollama, LMStudio"
+                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
+                        />
+                        <p className="text-[10px] text-text-secondary mt-1">Leave empty for standard OpenAI. Use `https://generativelanguage.googleapis.com/v1beta/openai/` for Gemini 1.5+. Use `http://localhost:11434/v1` for local Ollama.</p>
                     </div>
-                    <div className="p-6 space-y-4">
-                        <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Provider / Base URL</label>
-                            <input 
-                                type="text" 
-                                value={config.baseUrl}
-                                onChange={e => setConfig({...config, baseUrl: e.target.value})}
-                                placeholder="Standard OpenAI, Local/Cloud Ollama, LMStudio"
-                                className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all"
-                            />
-                            <p className="text-[10px] text-text-secondary mt-1">Leave empty for standard OpenAI. Use `https://generativelanguage.googleapis.com/v1beta/openai/` for Gemini 1.5+. Use `http://localhost:11434/v1` for local Ollama, or your custom Cloud URL.</p>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Model Name</label>
-                            <input 
-                                type="text" 
-                                value={config.model}
-                                onChange={e => setConfig({...config, model: e.target.value})}
-                                placeholder="gpt-4o-mini, gemini-1.5-flash, llama3:latest"
-                                className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">API Key</label>
-                            <input 
-                                type="password" 
-                                value={config.apiKey}
-                                onChange={e => setConfig({...config, apiKey: e.target.value})}
-                                placeholder="sk-..."
-                                className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all"
-                            />
-                            <p className="text-[10px] text-text-secondary mt-1">Stored locally in your browser.</p>
-                        </div>
-                        
-                        <div className="pt-2">
-                            <button 
-                                onClick={handleClearHistory}
-                                className="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
-                            >
-                                <Trash2 size={16} />
-                                Clear Chat History
-                            </button>
-                        </div>
+                    <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Model Name</label>
+                        <input
+                            type="text"
+                            value={config.model}
+                            onChange={e => setConfig({ ...config, model: e.target.value })}
+                            placeholder="gpt-4o-mini, gemini-1.5-flash, llama3:latest"
+                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">API Key</label>
+                        <input
+                            type="password"
+                            value={config.apiKey}
+                            onChange={e => setConfig({ ...config, apiKey: e.target.value })}
+                            placeholder="sk-..."
+                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
+                        />
+                        <p className="text-[10px] text-text-secondary mt-1">Stored locally in your browser.</p>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/5 mt-4">
+                        <button
+                            onClick={() => {
+                                handleClearHistory();
+                                setIsConfigOpen(false);
+                            }}
+                            className="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+                        >
+                            <Trash2 size={16} />
+                            Clear Chat History
+                        </button>
                     </div>
                 </div>
-            </div>
+            </Modal>
 
         </div>
     );

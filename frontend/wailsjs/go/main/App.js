@@ -118,8 +118,16 @@ export function SetIntercept(arg1) {
   return window['go']['main']['App']['SetIntercept'](arg1);
 }
 
+export function StartAutonomousAgent(arg1, arg2) {
+  return window['go']['main']['App']['StartAutonomousAgent'](arg1, arg2);
+}
+
 export function StartMCPServer(arg1, arg2) {
   return window['go']['main']['App']['StartMCPServer'](arg1, arg2);
+}
+
+export function StopAutonomousAgent() {
+  return window['go']['main']['App']['StopAutonomousAgent']();
 }
 
 export function StopMCPServer() {

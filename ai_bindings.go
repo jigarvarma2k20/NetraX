@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -81,45 +82,46 @@ func (a *App) ClearAgentHistory() error {
 	return a.DB.ClearAgentHistory()
 }
 
-func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg string) ([]ChatMessage, error) {
-	if config.BaseURL == "" {
-		config.BaseURL = "https://api.openai.com/v1"
+// CORE LLM EXECUTION HELPERS
+func (a *App) invokeLLM(config AIModelConfig, msgs []agentMessage, tools []llmTool) (*llmResponse, error) {
+	reqBody := llmRequest{
+		Model:    config.Model,
+		Messages: msgs,
+		Tools:    tools,
 	}
 
-	// ensure no trailing slash
-	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
-
-	// Auto-correct common URL mistakes
-	if strings.HasSuffix(config.BaseURL, "/api/chat") {
-		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api/chat") + "/v1"
-	}
-	if strings.HasSuffix(config.BaseURL, "/chat/completions") {
-		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/chat/completions")
-	}
-	if strings.HasSuffix(config.BaseURL, "/api") {
-		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api") + "/v1"
-	}
-	// If it's a bare local ollama root
-	if config.BaseURL == "http://localhost:11434" || config.BaseURL == "http://127.0.0.1:11434" {
-		config.BaseURL += "/v1"
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	// ensure no trailing slash again after corrections
-	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
-
-	var msgs []agentMessage
-	msgs = append(msgs, agentMessage{
-		Role:    "system",
-		Content: "You are the NetraX AI Proxy Agent. You can intercept, read, forward, and drop HTTP traffic to help the user debug and reverse engineer. Use your available tools. Output as valid JSON.",
-	})
-	for _, m := range history {
-		msgs = append(msgs, agentMessage{Role: m.Role, Content: m.Content})
+	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", config.BaseURL+"/chat/completions", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
-	msgs = append(msgs, agentMessage{
-		Role:    "user",
-		Content: userMsg,
-	})
 
+	httpReq.Header.Set("Content-Type", "application/json")
+	if config.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+config.APIKey)
+	}
+
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("AI request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var completionResp llmResponse
+	if err := json.Unmarshal(respBody, &completionResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response %v. Body was: %s", err, string(respBody))
+	}
+
+	return &completionResp, nil
+}
+
+func (a *App) getAgentTools() []llmTool {
 	var tools []llmTool
 	for name, mcpTool := range a.MCPServer.GetServer().ListTools() {
 		b, _ := json.Marshal(mcpTool.Tool.InputSchema)
@@ -133,69 +135,47 @@ func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg str
 		})
 	}
 
-	httpClient := &http.Client{}
-	maxTurns := 5
+	tools = append(tools, llmTool{
+		Type: "function",
+		Function: llmFunction{
+			Name:        "start_autopilot",
+			Description: "Starts an autonomous background polling loop that will execute a specific instruction continuously. This enables the agent to evaluate and intercept traffic even when the user is inactive.",
+			Parameters:  json.RawMessage(`{"type":"object","properties":{"instruction":{"type":"string","description":"The exact rule you will execute on requests inside the loop."}},"required":["instruction"]}`),
+		},
+	})
 
-	for turn := 0; turn < maxTurns; turn++ {
-		reqBody := llmRequest{
-			Model:    config.Model,
-			Messages: msgs,
-			Tools:    tools,
-		}
+	tools = append(tools, llmTool{
+		Type: "function",
+		Function: llmFunction{
+			Name:        "stop_autopilot",
+			Description: "Stops the background autonomous agent loop.",
+		},
+	})
+	return tools
+}
 
-		body, err := json.Marshal(reqBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request: %v", err)
-		}
+func (a *App) processToolCalls(config AIModelConfig, msg agentMessage) []agentMessage {
+	var toolsResponses []agentMessage
 
-		httpReq, err := http.NewRequestWithContext(context.Background(), "POST", config.BaseURL+"/chat/completions", bytes.NewBuffer(body))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %v", err)
-		}
+	for _, tc := range msg.ToolCalls {
+		var resultStr string
 
-		httpReq.Header.Set("Content-Type", "application/json")
-		if config.APIKey != "" {
-			httpReq.Header.Set("Authorization", "Bearer "+config.APIKey)
-		}
-
-		resp, err := httpClient.Do(httpReq)
-		if err != nil {
-			return nil, fmt.Errorf("AI request failed: %v", err)
-		}
-
-		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-
-		var completionResp llmResponse
-		if err := json.Unmarshal(respBody, &completionResp); err != nil {
-			return nil, fmt.Errorf("failed to parse response %v. Body was: %s", err, string(respBody))
-		}
-
-		if completionResp.Error != nil {
-			return nil, fmt.Errorf("AI error: %v", completionResp.Error)
-		}
-
-		if len(completionResp.Choices) == 0 {
-			return nil, fmt.Errorf("no choices in response. Code %d, Body: %s", resp.StatusCode, string(respBody))
-		}
-
-		msg := completionResp.Choices[0].Message
-		msgs = append(msgs, msg)
-
-		if len(msg.ToolCalls) == 0 {
-			a.DB.SaveAgentMessage("user", userMsg)
-			a.DB.SaveAgentMessage("assistant", msg.Content)
-			history = append(history, ChatMessage{Role: "user", Content: userMsg}, ChatMessage{Role: "assistant", Content: msg.Content})
-			return history, nil
-		}
-
-		for _, tc := range msg.ToolCalls {
-			var resultStr string
-
+		if tc.Function.Name == "start_autopilot" {
+			runtime.EventsEmit(a.ctx, "agent_log", "Tool Call: start_autopilot")
+			var args struct {
+				Instruction string `json:"instruction"`
+			}
+			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			a.StartAutonomousAgent(config, args.Instruction)
+			resultStr = "Started AutoPilot loop successfully."
+		} else if tc.Function.Name == "stop_autopilot" {
+			runtime.EventsEmit(a.ctx, "agent_log", "Tool Call: stop_autopilot")
+			a.StopAutonomousAgent()
+			resultStr = "Stopped AutoPilot loop successfully."
+		} else {
 			mcpTool := a.MCPServer.GetServer().GetTool(tc.Function.Name)
 			if mcpTool != nil && mcpTool.Handler != nil {
 				runtime.EventsEmit(a.ctx, "agent_log", fmt.Sprintf("Tool Call: %s", tc.Function.Name))
-
 				var args map[string]interface{}
 				if tc.Function.Arguments != "" {
 					json.Unmarshal([]byte(tc.Function.Arguments), &args)
@@ -226,14 +206,80 @@ func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg str
 			} else {
 				resultStr = "Unknown function"
 			}
-
-			msgs = append(msgs, agentMessage{
-				Role:       "tool",
-				Content:    resultStr,
-				Name:       tc.Function.Name,
-				ToolCallID: tc.ID,
-			})
 		}
+
+		toolsResponses = append(toolsResponses, agentMessage{
+			Role:       "tool",
+			Content:    resultStr,
+			Name:       tc.Function.Name,
+			ToolCallID: tc.ID,
+		})
+	}
+	return toolsResponses
+}
+
+func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg string) (newHistory []ChatMessage, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("critical error recovered: %v", r)
+			fmt.Println("Panic recovering in AgentChat:", r)
+		}
+	}()
+
+	if config.BaseURL == "" {
+		config.BaseURL = "https://api.openai.com/v1"
+	}
+	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+	if strings.HasSuffix(config.BaseURL, "/api/chat") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api/chat") + "/v1"
+	}
+	if strings.HasSuffix(config.BaseURL, "/chat/completions") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/chat/completions")
+	}
+	if strings.HasSuffix(config.BaseURL, "/api") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api") + "/v1"
+	}
+	if config.BaseURL == "http://localhost:11434" || config.BaseURL == "http://127.0.0.1:11434" {
+		config.BaseURL += "/v1"
+	}
+	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+
+	var msgs []agentMessage
+	msgs = append(msgs, agentMessage{
+		Role:    "system",
+		Content: "You are the NetraX AI Proxy Agent. You can intercept, read, forward, and drop HTTP traffic to help the user debug and reverse engineer. Use your available tools. You must format your responses using elegant Markdown, with appropriate headings, bullet points, and code blocks for raw HTTP traffic. Be concise and professional.",
+	})
+	for _, m := range history {
+		msgs = append(msgs, agentMessage{Role: m.Role, Content: m.Content})
+	}
+	msgs = append(msgs, agentMessage{Role: "user", Content: userMsg})
+
+	tools := a.getAgentTools()
+
+	for turn := 0; turn < 5; turn++ {
+		completionResp, apiErr := a.invokeLLM(config, msgs, tools)
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		if completionResp.Error != nil {
+			return nil, fmt.Errorf("AI error: %v", completionResp.Error)
+		}
+		if len(completionResp.Choices) == 0 {
+			return nil, fmt.Errorf("no choices in response")
+		}
+
+		msg := completionResp.Choices[0].Message
+		msgs = append(msgs, msg)
+
+		if len(msg.ToolCalls) == 0 {
+			a.DB.SaveAgentMessage("user", userMsg)
+			a.DB.SaveAgentMessage("assistant", msg.Content)
+			history = append(history, ChatMessage{Role: "user", Content: userMsg}, ChatMessage{Role: "assistant", Content: msg.Content})
+			return history, nil
+		}
+
+		toolReqMsgs := a.processToolCalls(config, msg)
+		msgs = append(msgs, toolReqMsgs...)
 	}
 
 	lastMsg := msgs[len(msgs)-1]
@@ -241,4 +287,106 @@ func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg str
 	a.DB.SaveAgentMessage("assistant", lastMsg.Content)
 	history = append(history, ChatMessage{Role: "user", Content: userMsg}, ChatMessage{Role: "assistant", Content: lastMsg.Content})
 	return history, nil
+}
+
+// AUTONOMOUS BACKGROUND AGENT
+func (a *App) StartAutonomousAgent(config AIModelConfig, instruction string) {
+	if a.autonomousCancel != nil {
+		a.autonomousCancel() // cancel previous
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.autonomousCancel = cancel
+	a.SetIntercept(true)
+	runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot initialized and traffic interception enabled.")
+
+	go a.runAutoPilot(ctx, config, instruction)
+}
+
+func (a *App) StopAutonomousAgent() {
+	if a.autonomousCancel != nil {
+		a.autonomousCancel()
+		a.autonomousCancel = nil
+		runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot mode terminated gracefully.")
+	}
+}
+
+func (a *App) runAutoPilot(ctx context.Context, config AIModelConfig, instruction string) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	// Ensure correct base URL formats (identical to standard execution)
+	if config.BaseURL == "" {
+		config.BaseURL = "https://api.openai.com/v1"
+	}
+	// ... we'll rely on the same normalize logic if we abstract it, but setting it purely is fine.
+	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+	if strings.HasSuffix(config.BaseURL, "/api/chat") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api/chat") + "/v1"
+	}
+	if strings.HasSuffix(config.BaseURL, "/chat/completions") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/chat/completions")
+	}
+	if strings.HasSuffix(config.BaseURL, "/api") {
+		config.BaseURL = strings.TrimSuffix(config.BaseURL, "/api") + "/v1"
+	}
+	if config.BaseURL == "http://localhost:11434" || config.BaseURL == "http://127.0.0.1:11434" {
+		config.BaseURL += "/v1"
+	}
+	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+
+	tools := a.getAgentTools()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Fetch currently pending traffic
+			reqs, _ := a.GetInterceptedRequests()
+			resps, _ := a.GetInterceptedResponses()
+			if len(reqs) == 0 && len(resps) == 0 {
+				continue // Nothing to evaluate
+			}
+
+			requestPayload := map[string]interface{}{}
+			if len(reqs) > 0 {
+				requestPayload["intercepted_requests"] = reqs
+			}
+			if len(resps) > 0 {
+				requestPayload["intercepted_responses"] = resps
+			}
+			trafficDump, _ := json.Marshal(requestPayload)
+
+			var msgs []agentMessage
+			msgs = append(msgs, agentMessage{
+				Role:    "system",
+				Content: fmt.Sprintf("You are operating as an Autonomous AutoPilot looping in the background.\nINSTRUCTION FROM USER:\n%s\n\nYour task is to take immediate action on intercepted traffic continuously. Do NOT give conversational responses. You must evaluate the items and use the required tools (e.g drop_request, forward_request, execute_request).", instruction),
+			})
+			msgs = append(msgs, agentMessage{Role: "user", Content: string(trafficDump)})
+
+			// 5-turn internal dialogue for the background worker
+			for turn := 0; turn < 5; turn++ {
+				completionResp, apiErr := a.invokeLLM(config, msgs, tools)
+				if apiErr != nil || completionResp.Error != nil {
+					runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot API Error: could not complete completion.")
+					break
+				}
+				if len(completionResp.Choices) == 0 {
+					break
+				}
+
+				msg := completionResp.Choices[0].Message
+				msgs = append(msgs, msg)
+
+				if len(msg.ToolCalls) == 0 {
+					// It finished acting. Maybe report to UI?
+					runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot completed a cycle of traffic evaluation.")
+					break
+				}
+
+				toolReqMsgs := a.processToolCalls(config, msg)
+				msgs = append(msgs, toolReqMsgs...)
+			}
+		}
+	}
 }

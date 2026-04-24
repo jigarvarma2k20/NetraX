@@ -22,10 +22,11 @@ import (
 
 // App struct
 type App struct {
-	ctx       context.Context
-	Proxy     *proxy.ProxyHandler
-	DB        *sqlite.DB
-	MCPServer *mcp.MCPServer
+	ctx              context.Context
+	Proxy            *proxy.ProxyHandler
+	DB               *sqlite.DB
+	MCPServer        *mcp.MCPServer
+	autonomousCancel context.CancelFunc
 }
 
 // NewApp creates a new App application struct
