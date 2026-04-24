@@ -11,6 +11,7 @@ const ComparerPage = lazy(() => import('./pages/ComparerPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const McpPage = lazy(() => import('./pages/McpPage'));
+const AgentPage = lazy(() => import('./pages/AgentPage.jsx'));
 
 const IntruderPage = () => (
   <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary/50">
@@ -80,6 +81,7 @@ export default function App() {
               <Route path="comparer" element={<ComparerPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="mcp" element={<McpPage />} />
+              <Route path="agent" element={<AgentPage />} />
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>

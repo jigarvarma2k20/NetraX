@@ -55,7 +55,7 @@ func NewMCPServer(
 	getProxySettings func() string,
 	getProxyCAInfo func() string,
 ) *MCPServer {
-	return &MCPServer{
+	m := &MCPServer{
 		port:                    8080,        // Default MCP SSE port
 		address:                 "127.0.0.1", // Default MCP Address
 		getRequests:             getRequests,
@@ -73,6 +73,8 @@ func NewMCPServer(
 		getProxySettings:        getProxySettings,
 		getProxyCAInfo:          getProxyCAInfo,
 	}
+	m.initServer()
+	return m
 }
 
 func (m *MCPServer) initServer() {
@@ -179,7 +181,6 @@ func (m *MCPServer) Start(address string, port int) error {
 
 	m.address = address
 	m.port = port
-	m.initServer()
 
 	sseServer := server.NewSSEServer(m.srv)
 
@@ -235,6 +236,10 @@ func (m *MCPServer) IsRunning() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.running
+}
+
+func (m *MCPServer) GetServer() *server.MCPServer {
+	return m.srv
 }
 
 func (m *MCPServer) handleGetTraffic(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

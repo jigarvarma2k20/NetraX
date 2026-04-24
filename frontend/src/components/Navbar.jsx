@@ -152,6 +152,7 @@ export default function Navbar() {
                     <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
                     <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
                     <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
+                    <InternalNavItem to="/agent" label="Agent API" icon="bot" />
                 </div>
 
                 <div className="flex-1" />
