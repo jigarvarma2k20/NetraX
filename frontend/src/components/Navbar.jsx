@@ -102,10 +102,10 @@ export default function Navbar() {
     };
 
     return (
-        <header className="w-full glass border-b border-white/[0.06] flex flex-col shrink-0 relative z-40">
+        <header className="w-full glass border-b border-white/6 flex flex-col shrink-0 relative z-40">
             <Modal {...modalConfig} onClose={closeModal} />
 
-            <div className="flex items-center gap-6 px-4 h-12 border-b border-white/[0.04] bg-[#0c101c]">
+            <div className="flex items-center gap-6 px-4 h-12 border-b border-white/4 bg-[#0c101c]">
                 <div className="flex items-center gap-2.5">
                     <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
                     <span className="font-bold text-primary text-sm tracking-wide">NetraX</span>
@@ -123,14 +123,14 @@ export default function Navbar() {
                             File
                         </button>
                         {isFileMenuOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-48 glass border border-white/[0.08] rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                            <div className="absolute top-full left-0 mt-1 w-48 glass border border-white/8 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
                                 <button onClick={handleExport} className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-text-secondary hover:text-white transition-colors text-xs">
                                     Save Project...
                                 </button>
                                 <button onClick={handleImport} className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-text-secondary hover:text-white transition-colors text-xs">
                                     Open Project...
                                 </button>
-                                <div className="h-px bg-white/[0.06] my-0.5" />
+                                <div className="h-px bg-white/6 my-0.5" />
                                 <button onClick={handleReset} className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-accent-red hover:text-red-300 transition-colors text-xs">
                                     New Project (Reset)
                                 </button>
@@ -145,6 +145,7 @@ export default function Navbar() {
             <div className="flex items-center px-4 h-12 gap-4 bg-panel-dark">
                 <div className="flex gap-1 overflow-x-auto no-scrollbar">
                     <InternalNavItem to="/dashboard" label="Dashboard" icon="layout-dashboard" />
+                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
                     <InternalNavItem to="/history" label="History" icon="history" />
                     <InternalNavItem to="/intruder" label="Intruder" icon="zap" />
                     <InternalNavItem to="/intercept" label="Interceptor" icon="shield-alert" />
@@ -178,6 +179,7 @@ import {
     ShieldAlert,
     Repeat,
     Code2,
+                        SlidersHorizontal,
     GitCompareArrows,
     Settings as SettingsIcon,
     Bot
@@ -194,6 +196,7 @@ const InternalNavItem = ({ to, icon, label, badge }) => {
         'shield-alert': ShieldAlert,
         'repeat': Repeat,
         'code-2': Code2,
+        'sliders-horizontal': SlidersHorizontal,
         'git-compare-arrows': GitCompareArrows,
         'settings': SettingsIcon,
         'bot': Bot

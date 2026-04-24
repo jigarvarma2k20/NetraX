@@ -9,6 +9,7 @@ const InterceptPage = lazy(() => import('./pages/InterceptPage'));
 const DecoderPage = lazy(() => import('./pages/DecoderPage'));
 const ComparerPage = lazy(() => import('./pages/ComparerPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SetupPage = lazy(() => import('./pages/SetupPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const McpPage = lazy(() => import('./pages/McpPage'));
 const AgentPage = lazy(() => import('./pages/AgentPage.jsx'));
@@ -73,6 +74,7 @@ export default function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
 
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="setup" element={<SetupPage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="intercept" element={<InterceptPage />} />
               <Route path="repeater" element={<RepeaterPage />} />
