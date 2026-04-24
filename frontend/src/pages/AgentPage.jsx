@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { AgentChat, GetAgentHistory, ClearAgentHistory } from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
 import { Bot, Send, Settings, User, Trash2 } from 'lucide-react';
@@ -7,11 +7,79 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from '../components/Modal';
 
+const markdownPlugins = [remarkGfm];
+const CHAT_PAGE_SIZE = 30;
+
+const markdownComponents = {
+    p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
+    pre: ({ node, ...props }) => <div className="bg-[#05070d] p-3 rounded-lg overflow-x-auto my-2 border border-white/5 shadow-inner"><pre {...props} /></div>,
+    code: ({ node, inline, ...props }) =>
+        inline
+            ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+            : <code className="text-xs text-text-secondary font-mono" {...props} />,
+    ul: ({ node, ...props }) => <ul className="list-disc ml-5 my-2 space-y-1" {...props} />,
+    ol: ({ node, ...props }) => <ol className="list-decimal ml-5 my-2 space-y-1" {...props} />,
+    li: ({ node, ...props }) => <li className="leading-snug" {...props} />,
+    h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+    h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-white mb-2 mt-3" {...props} />,
+    h3: ({ node, ...props }) => <h3 className="text-sm font-medium text-white mb-1 mt-2" {...props} />,
+    a: ({ node, ...props }) => <a className="text-primary hover:underline transition-colors" {...props} />
+};
+
+function looksLikeMarkdown(content) {
+    return /(^|\n)\s{0,3}([#>*-]|\d+\.)\s|```|`[^`]+`|\[[^\]]+\]\([^\)]+\)|\|/.test(content);
+}
+
+const MessageItem = React.memo(function MessageItem({ msg }) {
+    const isUser = msg.role === 'user';
+    const isSystem = msg.role === 'system';
+    const isAssistant = msg.role === 'assistant';
+    const renderAsMarkdown = isAssistant && looksLikeMarkdown(msg.content || '');
+
+    return (
+        <div className={clsx(
+            "flex items-start gap-3 max-w-[80%]",
+            isUser ? "ml-auto flex-row-reverse" : ""
+        )}>
+            <div className={clsx(
+                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg",
+                isUser ? "bg-primary" : isSystem ? "bg-text-secondary/20" : "bg-[#0c101c] border border-white/5"
+            )}>
+                {isUser ? <User size={14} className="text-background-dark" /> : <Bot size={14} className={isSystem ? 'text-text-secondary' : 'text-primary'} />}
+            </div>
+
+            <div className={clsx(
+                "p-4 rounded-xl text-sm shadow-md",
+                isUser
+                    ? "bg-primary text-background-dark font-medium rounded-tr-sm"
+                    : isSystem
+                        ? "bg-text-secondary/10 text-text-secondary italic text-xs rounded-tl-sm w-full"
+                        : "bg-panel-dark text-text-primary border border-white/5 rounded-tl-sm w-full overflow-hidden"
+            )}>
+                {isAssistant ? (
+                    renderAsMarkdown ? (
+                        <div className="w-full markdown-body whitespace-pre-wrap break-words">
+                            <ReactMarkdown remarkPlugins={markdownPlugins} components={markdownComponents}>
+                                {msg.content}
+                            </ReactMarkdown>
+                        </div>
+                    ) : (
+                        <div className="whitespace-pre-wrap word-break">{msg.content}</div>
+                    )
+                ) : (
+                    <div className="whitespace-pre-wrap word-break">{msg.content}</div>
+                )}
+            </div>
+        </div>
+    );
+});
+
 export default function AgentPage() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(CHAT_PAGE_SIZE);
 
     // Config state
     const [config, setConfig] = useState(() => {
@@ -32,6 +100,21 @@ export default function AgentPage() {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        if (messages.length === 0) {
+            setVisibleCount(CHAT_PAGE_SIZE);
+        }
+    }, [messages.length]);
+
+    const hiddenCount = Math.max(0, messages.length - visibleCount);
+    const visibleMessages = useMemo(() => {
+        const start = Math.max(0, messages.length - visibleCount);
+        return messages.slice(start).map((msg, idx) => ({
+            msg,
+            originalIndex: start + idx
+        }));
+    }, [messages, visibleCount]);
 
     useEffect(() => {
         // Load history from DB
@@ -120,50 +203,18 @@ export default function AgentPage() {
                             Say hello to your integrated proxy agent!
                         </div>
                     )}
-                    {messages.map((msg, i) => (
-                        <div key={i} className={clsx(
-                            "flex items-start gap-3 max-w-[80%]",
-                            msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-                        )}>
-                            <div className={clsx(
-                                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg",
-                                msg.role === 'user' ? "bg-primary" : msg.role === 'system' ? "bg-text-secondary/20" : "bg-[#0c101c] border border-white/5"
-                            )}>
-                                {msg.role === 'user' ? <User size={14} className="text-background-dark" /> : <Bot size={14} className={msg.role === 'system' ? 'text-text-secondary' : 'text-primary'} />}
-                            </div>
-
-                            <div className={clsx(
-                                "p-4 rounded-xl text-sm shadow-md",
-                                msg.role === 'user' ? "bg-primary text-background-dark font-medium rounded-tr-sm" : msg.role === 'system' ? "bg-text-secondary/10 text-text-secondary italic text-xs rounded-tl-sm w-full" : "bg-panel-dark text-text-primary border border-white/5 rounded-tl-sm w-full overflow-hidden"
-                            )}>
-                                {msg.role === 'assistant' ? (
-                                    <div className="w-full markdown-body whitespace-pre-wrap break-words">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={{
-                                                p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
-                                                pre: ({ node, ...props }) => <div className="bg-[#05070d] p-3 rounded-lg overflow-x-auto my-2 border border-white/5 shadow-inner"><pre {...props} /></div>,
-                                                code: ({ node, inline, ...props }) =>
-                                                    inline
-                                                        ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
-                                                        : <code className="text-xs text-text-secondary font-mono" {...props} />,
-                                                ul: ({ node, ...props }) => <ul className="list-disc ml-5 my-2 space-y-1" {...props} />,
-                                                ol: ({ node, ...props }) => <ol className="list-decimal ml-5 my-2 space-y-1" {...props} />,
-                                                li: ({ node, ...props }) => <li className="leading-snug" {...props} />,
-                                                h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
-                                                h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-white mb-2 mt-3" {...props} />,
-                                                h3: ({ node, ...props }) => <h3 className="text-sm font-medium text-white mb-1 mt-2" {...props} />,
-                                                a: ({ node, ...props }) => <a className="text-primary hover:underline transition-colors" {...props} />
-                                            }}
-                                        >
-                                            {msg.content}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : (
-                                    <div className="whitespace-pre-wrap word-break">{msg.content}</div>
-                                )}
-                            </div>
+                    {hiddenCount > 0 && (
+                        <div className="flex justify-center mb-2">
+                            <button
+                                onClick={() => setVisibleCount(prev => prev + CHAT_PAGE_SIZE)}
+                                className="text-xs px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white transition-colors border border-white/10"
+                            >
+                                Load {Math.min(CHAT_PAGE_SIZE, hiddenCount)} older messages ({hiddenCount} hidden)
+                            </button>
                         </div>
+                    )}
+                    {visibleMessages.map(({ msg, originalIndex }) => (
+                        <MessageItem key={originalIndex} msg={msg} />
                     ))}
                     {loading && (
                         <div className="flex items-start gap-3">

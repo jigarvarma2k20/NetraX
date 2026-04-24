@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"wailshark/internal/adapters/persistence/sqlite"
 	"wailshark/internal/config"
 	"wailshark/internal/core/domain"
@@ -40,6 +41,17 @@ type InterceptAction struct {
 	Type             string // "forward", "drop"
 	ModifiedRequest  *domain.HTTPRequestDTO
 	ModifiedResponse *domain.HTTPResponseDTO
+}
+
+const interceptDecisionTimeout = 60 * time.Second
+
+func sendInterceptAction(ch chan InterceptAction, action InterceptAction) bool {
+	select {
+	case ch <- action:
+		return true
+	default:
+		return false
+	}
 }
 
 func NewProxyHandler(db *sqlite.DB) *ProxyHandler {
@@ -161,12 +173,14 @@ func (p *ProxyHandler) Start() {
 	certPath, _ := config.GetCertPath()
 	keyPath, _ := config.GetKeyPath()
 	if err := config.EnsureCA(); err != nil {
-		log.Fatalf("Failed to ensure CA: %v", err)
+		log.Printf("Failed to ensure CA: %v", err)
+		return
 	}
 
 	cert, err := p.parseCA(certPath, keyPath)
 	if err != nil {
-		log.Fatalf("Failed to parse CA certificate: %v", err)
+		log.Printf("Failed to parse CA certificate: %v", err)
+		return
 	}
 	// Set up the proxy to use the custom CA for MITM
 	customCaMitm := &goproxy.ConnectAction{Action: goproxy.ConnectMitm, TLSConfig: goproxy.TLSConfigFromCA(cert)}
@@ -185,7 +199,7 @@ func (p *ProxyHandler) Start() {
 
 			if p.InterceptEnabled.Load() {
 				// Block request
-				actionChan := make(chan InterceptAction)
+				actionChan := make(chan InterceptAction, 1)
 				p.PendingRequests.Store(id, actionChan)
 
 				// Notify frontend
@@ -196,6 +210,9 @@ func (p *ProxyHandler) Start() {
 				var action InterceptAction
 				select {
 				case action = <-actionChan:
+				case <-time.After(interceptDecisionTimeout):
+					log.Printf("Request intercept timeout for ID %d, forwarding automatically", id)
+					action = InterceptAction{Type: "forward"}
 				case <-req.Context().Done():
 					p.PendingRequests.Delete(id)
 					return req, nil
@@ -262,14 +279,16 @@ func (p *ProxyHandler) Start() {
 				// Only intercept if explicitly requested for this ID
 				var shouldIntercept bool
 				if val, ok := p.RequestsToInterceptResponse.Load(id); ok {
-					shouldIntercept = val.(bool)
+					if b, ok := val.(bool); ok {
+						shouldIntercept = b
+					}
 				}
 
 				if shouldIntercept {
 					// Clean up map if it was a one-time intercept
 					p.RequestsToInterceptResponse.Delete(id)
 
-					actionChan := make(chan InterceptAction)
+					actionChan := make(chan InterceptAction, 1)
 					p.PendingResponses.Store(id, actionChan)
 
 					p.SendToFrontend("interceptedResponse", id)
@@ -279,6 +298,9 @@ func (p *ProxyHandler) Start() {
 					select {
 					case action = <-actionChan:
 						log.Printf("Received action for ID %d: %s", id, action.Type)
+					case <-time.After(interceptDecisionTimeout):
+						log.Printf("Response intercept timeout for ID %d, forwarding automatically", id)
+						action = InterceptAction{Type: "forward"}
 					case <-resp.Request.Context().Done():
 						log.Printf("Context Done for ID %d. Err: %v", id, resp.Request.Context().Err())
 						p.PendingResponses.Delete(id)
@@ -387,11 +409,7 @@ func (p *ProxyHandler) FlushPending() {
 	log.Println("FlushPending called")
 	p.PendingRequests.Range(func(key, value any) bool {
 		if ch, ok := value.(chan InterceptAction); ok {
-			// Non-blocking send to avoid deadlock if channel is somehow full (shouldn't be)
-			select {
-			case ch <- InterceptAction{Type: "forward"}:
-			default:
-			}
+			sendInterceptAction(ch, InterceptAction{Type: "forward"})
 		}
 		p.PendingRequests.Delete(key)
 		return true
@@ -399,10 +417,7 @@ func (p *ProxyHandler) FlushPending() {
 
 	p.PendingResponses.Range(func(key, value any) bool {
 		if ch, ok := value.(chan InterceptAction); ok {
-			select {
-			case ch <- InterceptAction{Type: "forward"}:
-			default:
-			}
+			sendInterceptAction(ch, InterceptAction{Type: "forward"})
 		}
 		p.PendingResponses.Delete(key)
 		return true
@@ -412,12 +427,17 @@ func (p *ProxyHandler) FlushPending() {
 func (p *ProxyHandler) HandleRequestAction(id int64, actionType string, modifiedReq *domain.HTTPRequestDTO) {
 	if val, ok := p.PendingRequests.Load(id); ok {
 		if ch, ok := val.(chan InterceptAction); ok {
+			var action InterceptAction
 			if actionType == "forward_and_intercept" {
 				p.RequestsToInterceptResponse.Store(id, true)
 				// Change action type to forward for the proxy logic
-				ch <- InterceptAction{Type: "forward", ModifiedRequest: modifiedReq}
+				action = InterceptAction{Type: "forward", ModifiedRequest: modifiedReq}
 			} else {
-				ch <- InterceptAction{Type: actionType, ModifiedRequest: modifiedReq}
+				action = InterceptAction{Type: actionType, ModifiedRequest: modifiedReq}
+			}
+
+			if !sendInterceptAction(ch, action) {
+				log.Printf("Skipping stale request action for ID %d", id)
 			}
 		}
 	}
@@ -427,7 +447,9 @@ func (p *ProxyHandler) HandleResponseAction(id int64, actionType string, modifie
 	log.Printf("HandleResponseAction called for ID %d with action %s", id, actionType)
 	if val, ok := p.PendingResponses.Load(id); ok {
 		if ch, ok := val.(chan InterceptAction); ok {
-			ch <- InterceptAction{Type: actionType, ModifiedResponse: modifiedResp}
+			if !sendInterceptAction(ch, InterceptAction{Type: actionType, ModifiedResponse: modifiedResp}) {
+				log.Printf("Skipping stale response action for ID %d", id)
+			}
 		}
 	} else {
 		log.Printf("Failed to find pending response channel for ID %d", id)
@@ -438,7 +460,7 @@ func (p *ProxyHandler) HandleResponseAction(id int64, actionType string, modifie
 func (p *ProxyHandler) GetPendingRequests() []int64 {
 	var ids []int64
 	p.PendingRequests.Range(func(key, value any) bool {
-if id, ok := key.(int64); ok {
+		if id, ok := key.(int64); ok {
 			ids = append(ids, id)
 		}
 		return true
@@ -450,7 +472,7 @@ if id, ok := key.(int64); ok {
 func (p *ProxyHandler) GetPendingResponses() []int64 {
 	var ids []int64
 	p.PendingResponses.Range(func(key, value any) bool {
-if id, ok := key.(int64); ok {
+		if id, ok := key.(int64); ok {
 			ids = append(ids, id)
 		}
 		return true

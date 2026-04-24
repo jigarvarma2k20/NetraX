@@ -83,7 +83,11 @@ func (a *App) ClearAgentHistory() error {
 }
 
 // CORE LLM EXECUTION HELPERS
-func (a *App) invokeLLM(config AIModelConfig, msgs []agentMessage, tools []llmTool) (*llmResponse, error) {
+func (a *App) invokeLLM(ctx context.Context, config AIModelConfig, msgs []agentMessage, tools []llmTool) (*llmResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	reqBody := llmRequest{
 		Model:    config.Model,
 		Messages: msgs,
@@ -95,7 +99,7 @@ func (a *App) invokeLLM(config AIModelConfig, msgs []agentMessage, tools []llmTo
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", config.BaseURL+"/chat/completions", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", config.BaseURL+"/chat/completions", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -105,7 +109,7 @@ func (a *App) invokeLLM(config AIModelConfig, msgs []agentMessage, tools []llmTo
 		httpReq.Header.Set("Authorization", "Bearer "+config.APIKey)
 	}
 
-	httpClient := &http.Client{}
+	httpClient := &http.Client{Timeout: 45 * time.Second}
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("AI request failed: %v", err)
@@ -257,7 +261,7 @@ func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg str
 	tools := a.getAgentTools()
 
 	for turn := 0; turn < 5; turn++ {
-		completionResp, apiErr := a.invokeLLM(config, msgs, tools)
+		completionResp, apiErr := a.invokeLLM(context.Background(), config, msgs, tools)
 		if apiErr != nil {
 			return nil, apiErr
 		}
@@ -366,7 +370,7 @@ func (a *App) runAutoPilot(ctx context.Context, config AIModelConfig, instructio
 
 			// 5-turn internal dialogue for the background worker
 			for turn := 0; turn < 5; turn++ {
-				completionResp, apiErr := a.invokeLLM(config, msgs, tools)
+				completionResp, apiErr := a.invokeLLM(ctx, config, msgs, tools)
 				if apiErr != nil || completionResp.Error != nil {
 					runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot API Error: could not complete completion.")
 					break
