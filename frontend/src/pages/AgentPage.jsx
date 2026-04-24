@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { AgentChat, GetAgentHistory, ClearAgentHistory } from '../../wailsjs/go/main/App';
+import { AgentChat, GetAgentHistory, ClearAgentHistory, CancelAgentChat } from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
-import { Bot, Send, Settings, User, Trash2 } from 'lucide-react';
+import { Bot, MessageSquare, Send, Settings, Sparkles, Trash2, User, ChevronDown, Square } from 'lucide-react';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,19 +11,20 @@ const markdownPlugins = [remarkGfm];
 const CHAT_PAGE_SIZE = 30;
 
 const markdownComponents = {
-    p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
-    pre: ({ node, ...props }) => <div className="bg-[#05070d] p-3 rounded-lg overflow-x-auto my-2 border border-white/5 shadow-inner"><pre {...props} /></div>,
+    p: ({ node, ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-[15px]" {...props} />,
+    pre: ({ node, ...props }) => <div className="bg-[#18181b] p-4 rounded-xl overflow-x-auto my-4 border border-white/10 shadow-sm"><pre {...props} /></div>,
     code: ({ node, inline, ...props }) =>
         inline
-            ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
-            : <code className="text-xs text-text-secondary font-mono" {...props} />,
-    ul: ({ node, ...props }) => <ul className="list-disc ml-5 my-2 space-y-1" {...props} />,
-    ol: ({ node, ...props }) => <ol className="list-decimal ml-5 my-2 space-y-1" {...props} />,
+            ? <code className="bg-[#27272a] text-white px-1.5 py-0.5 rounded-md text-sm font-mono border border-white/5" {...props} />
+            : <code className="text-sm text-gray-200 font-mono" {...props} />,
+    ul: ({ node, ...props }) => <ul className="list-disc ml-5 my-4 space-y-2 text-[15px]" {...props} />,
+    ol: ({ node, ...props }) => <ol className="list-decimal ml-5 my-4 space-y-2 text-[15px]" {...props} />,
     li: ({ node, ...props }) => <li className="leading-snug" {...props} />,
-    h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
-    h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-white mb-2 mt-3" {...props} />,
-    h3: ({ node, ...props }) => <h3 className="text-sm font-medium text-white mb-1 mt-2" {...props} />,
-    a: ({ node, ...props }) => <a className="text-primary hover:underline transition-colors" {...props} />
+    h1: ({ node, ...props }) => <h1 className="text-xl font-semibold text-white mb-3 mt-6" {...props} />,
+    h2: ({ node, ...props }) => <h2 className="text-lg font-semibold text-white mb-3 mt-6" {...props} />,
+    h3: ({ node, ...props }) => <h3 className="text-base font-medium text-white mb-2 mt-5" {...props} />,
+    a: ({ node, ...props }) => <a className="text-blue-400 hover:underline transition-colors" {...props} />,
+    blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-white/20 pl-4 my-4 font-normal italic text-gray-400" {...props} />,
 };
 
 function looksLikeMarkdown(content) {
@@ -38,41 +39,68 @@ const MessageItem = React.memo(function MessageItem({ msg }) {
 
     return (
         <div className={clsx(
-            "flex items-start gap-3 max-w-[80%]",
-            isUser ? "ml-auto flex-row-reverse" : ""
+            "flex w-full py-6",
+            isUser ? "justify-end" : "justify-start"
         )}>
             <div className={clsx(
-                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg",
-                isUser ? "bg-primary" : isSystem ? "bg-text-secondary/20" : "bg-[#0c101c] border border-white/5"
+                "w-full max-w-5xl flex gap-4 md:gap-5 px-4 lg:px-0 mx-auto",
+                isUser ? "flex-row-reverse" : "flex-row"
             )}>
-                {isUser ? <User size={14} className="text-background-dark" /> : <Bot size={14} className={isSystem ? 'text-text-secondary' : 'text-primary'} />}
-            </div>
+                {/* Avatar */}
+                {!isUser && (
+                    <div className={clsx(
+                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border mt-0.5",
+                        isSystem
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : "bg-[#18181b] text-white border-white/10 shadow-sm"
+                    )}>
+                        {isSystem ? <Bot size={16} /> : <Bot size={16} />}
+                    </div>
+                )}
 
-            <div className={clsx(
-                "p-4 rounded-xl text-sm shadow-md",
-                isUser
-                    ? "bg-primary text-background-dark font-medium rounded-tr-sm"
-                    : isSystem
-                        ? "bg-text-secondary/10 text-text-secondary italic text-xs rounded-tl-sm w-full"
-                        : "bg-panel-dark text-text-primary border border-white/5 rounded-tl-sm w-full overflow-hidden"
-            )}>
-                {isAssistant ? (
-                    renderAsMarkdown ? (
-                        <div className="w-full markdown-body whitespace-pre-wrap break-words">
-                            <ReactMarkdown remarkPlugins={markdownPlugins} components={markdownComponents}>
-                                {msg.content}
-                            </ReactMarkdown>
+                {/* Message Bubble */}
+                <div className={clsx(
+                    "flex flex-col space-y-2 text-[15px] overflow-hidden",
+                    isUser ? "items-end" : "items-start w-full",
+                    /* Important: ensure max-width is constrained so text word-wraps */
+                    "max-w-full"
+                )}>
+                    {isUser ? (
+                        <div className="bg-[#27272a] text-white px-5 py-3 rounded-3xl rounded-tr-sm shadow-sm max-w-fit">
+                            <div className="whitespace-pre-wrap word-break">{msg.content}</div>
                         </div>
                     ) : (
-                        <div className="whitespace-pre-wrap word-break">{msg.content}</div>
-                    )
-                ) : (
-                    <div className="whitespace-pre-wrap word-break">{msg.content}</div>
-                )}
+                        <div className={clsx(
+                            "w-full text-zinc-300",
+                            isSystem ? "text-amber-200/80 italic text-sm mt-1" : ""
+                        )}>
+                            {isAssistant ? (
+                                renderAsMarkdown ? (
+                                    <div className="markdown-body whitespace-pre-wrap break-words leading-relaxed min-w-0">
+                                        <ReactMarkdown remarkPlugins={markdownPlugins} components={markdownComponents}>
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : (
+                                    <div className="whitespace-pre-wrap word-break leading-relaxed">{msg.content}</div>
+                                )
+                            ) : (
+                                <div className="whitespace-pre-wrap word-break leading-relaxed">{msg.content}</div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 });
+const PROVIDER_PRESETS = [
+    { label: 'Ollama Cloud', url: 'https://ollama.com/api/chat', modelHint: 'llama3:latest' },
+    { label: 'Ollama (Local)', url: 'http://localhost:11434/v1', modelHint: 'llama3:latest' },
+    { label: 'Google (Gemini)', url: 'https://generativelanguage.googleapis.com/v1beta/openai/', modelHint: 'gemini-2.5-flash' },
+    { label: 'OpenAI (ChatGPT)', url: 'https://api.openai.com/v1', modelHint: 'gpt-4o' },
+    { label: 'Custom URL', url: 'custom', modelHint: '' },
+];
 
 export default function AgentPage() {
     const [messages, setMessages] = useState([]);
@@ -91,6 +119,21 @@ export default function AgentPage() {
         };
     });
 
+    const currentPreset = useMemo(() => {
+        const preset = PROVIDER_PRESETS.find(p => p.url === config.baseUrl);
+        return preset ? preset.url : 'custom';
+    }, [config.baseUrl]);
+
+    const handleProviderChange = (e) => {
+        const selectedUrl = e.target.value;
+        if (selectedUrl !== 'custom') {
+            const preset = PROVIDER_PRESETS.find(p => p.url === selectedUrl);
+            setConfig({ ...config, baseUrl: selectedUrl, model: preset.modelHint || config.model });
+        } else {
+            setConfig({ ...config, baseUrl: '' });
+        }
+    };
+
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -108,6 +151,7 @@ export default function AgentPage() {
     }, [messages.length]);
 
     const hiddenCount = Math.max(0, messages.length - visibleCount);
+
     const visibleMessages = useMemo(() => {
         const start = Math.max(0, messages.length - visibleCount);
         return messages.slice(start).map((msg, idx) => ({
@@ -117,7 +161,6 @@ export default function AgentPage() {
     }, [messages, visibleCount]);
 
     useEffect(() => {
-        // Load history from DB
         const loadHistory = async () => {
             try {
                 const history = await GetAgentHistory();
@@ -130,7 +173,6 @@ export default function AgentPage() {
         };
         loadHistory();
 
-        // Listen for internal tool calls emitted by backend
         const unlisten = EventsOn("agent_log", (logMsg) => {
             setMessages(prev => [...prev, { role: 'system', content: `[Agent Action]: ${logMsg}` }]);
         });
@@ -143,7 +185,6 @@ export default function AgentPage() {
         if (!window.confirm("Are you sure you want to clear all chat history? This action cannot be undone.")) {
             return;
         }
-
         try {
             await ClearAgentHistory();
             setMessages([]);
@@ -153,9 +194,9 @@ export default function AgentPage() {
     };
 
     const sendMessage = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
 
-        const userMsg = input;
+        const userMsg = input.trim();
         setInput('');
 
         const newHistory = [...messages.filter(m => m.role === 'user' || m.role === 'assistant')];
@@ -164,9 +205,7 @@ export default function AgentPage() {
 
         try {
             const finalHistory = await AgentChat(config, newHistory, userMsg);
-            // finalHistory includes all old messages + the new usermsg & assistant reply
             if (finalHistory) {
-                // keep the system log messages, and just pull the last reply
                 const assistantReply = finalHistory[finalHistory.length - 1];
                 setMessages(prev => [...prev, { role: 'assistant', content: assistantReply.content }]);
             }
@@ -178,137 +217,217 @@ export default function AgentPage() {
         }
     };
 
-    return (
-        <div className="flex-1 bg-background-dark p-6 overflow-hidden flex flex-col md:flex-row gap-6 w-full h-full">
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    };
 
-            {/* Chat Window */}
-            <div className="flex-1 flex flex-col glass border border-white/[0.04] rounded-xl overflow-hidden shadow-2xl h-full">
-                <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c] flex items-center justify-between shadow-sm z-10">
-                    <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                        <Bot size={18} className="text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]" />
-                        NetraX AI Agent
-                    </h2>
-                    <button
-                        onClick={() => setIsConfigOpen(true)}
-                        className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white transition-all ring-1 ring-white/5 hover:ring-white/10 shadow-lg"
-                        title="LLM Configuration"
-                    >
-                        <Settings size={16} />
-                    </button>
+    return (
+        <div className="relative flex flex-col w-full h-full bg-[#09090b] overflow-hidden text-zinc-100 font-sans">
+            {/* Minimal Header */}
+            <header className="flex-none h-14 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 z-10 w-full relative group shadow-sm transition-all duration-300">
+                <div className="flex items-center gap-3">
+                    <div className="flex bg-[#27272a] p-1.5 rounded-lg border border-white/10 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                        <Sparkles size={16} className="text-zinc-200" />
+                    </div>
+                    <div>
+                        <h2 className="text-[15px] font-medium tracking-tight text-white flex items-center gap-2">
+                            NetraX Assistant
+                        </h2>
+                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                    {messages.length === 0 && (
-                        <div className="text-center text-text-secondary/50 mt-10">
-                            Say hello to your integrated proxy agent!
-                        </div>
-                    )}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsConfigOpen(true)}
+                        className="rounded-lg border border-white/10 bg-[#18181b] p-2 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white group"
+                        title="Configuration"
+                    >
+                        <Settings size={16} className="group-hover:rotate-45 transition-transform duration-300" />
+                    </button>
+                </div>
+            </header>
+
+            {/* Chat Area */}
+            <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar scroll-smooth flex flex-col items-center">
+                <div className="w-full flex-1 flex flex-col justify-start pb-4">
                     {hiddenCount > 0 && (
-                        <div className="flex justify-center mb-2">
+                        <div className="flex justify-center mt-6">
                             <button
                                 onClick={() => setVisibleCount(prev => prev + CHAT_PAGE_SIZE)}
-                                className="text-xs px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white transition-colors border border-white/10"
+                                className="flex items-center gap-2 rounded-full border border-white/10 bg-[#18181b] px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white hover:border-white/20 shadow-sm"
                             >
-                                Load {Math.min(CHAT_PAGE_SIZE, hiddenCount)} older messages ({hiddenCount} hidden)
+                                <ChevronDown size={14} />
+                                Load previous messages ({hiddenCount})
                             </button>
                         </div>
                     )}
-                    {visibleMessages.map(({ msg, originalIndex }) => (
-                        <MessageItem key={originalIndex} msg={msg} />
-                    ))}
-                    {loading && (
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg bg-[#0c101c] border border-white/5">
-                                <Bot size={14} className="text-primary animate-pulse" />
+
+                    {messages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center p-6 text-center max-w-xl mx-auto space-y-6 my-auto">
+                            <div className="w-16 h-16 rounded-3xl bg-[#18181b] border border-white/10 flex items-center justify-center shadow-lg shadow-black/50 transition-transform duration-500 hover:scale-110">
+                                <Sparkles size={28} className="text-zinc-300" />
                             </div>
-                            <div className="p-4 rounded-xl text-sm bg-panel-dark text-text-primary border border-white/5 shadow-md flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce"></span>
-                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-semibold text-white tracking-tight">How can I assist you today?</h3>
+                                <p className="text-[15px] text-zinc-400 leading-relaxed">
+                                    I can analyze traffic, inspect payloads, and help you understand security dynamics caught by NetraX.
+                                </p>
+                            </div>
+                            <div className="flex gap-3 flex-wrap justify-center mt-4">
+                                <button onClick={() => setInput("Identify any anomalous requests in the recent traffic.")} className="bg-[#18181b] hover:bg-[#27272a] border border-white/5 text-zinc-300 text-sm px-4 py-2.5 rounded-xl transition-all shadow-sm">
+                                    Spot anomalies
+                                </button>
+                                <button onClick={() => setInput("Explain the payloads sent to the backend endpoints.")} className="bg-[#18181b] hover:bg-[#27272a] border border-white/5 text-zinc-300 text-sm px-4 py-2.5 rounded-xl transition-all shadow-sm">
+                                    Explain payloads
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full flex-1">
+                            {visibleMessages.map(({ msg, originalIndex }) => (
+                                <MessageItem key={originalIndex} msg={msg} />
+                            ))}
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="flex w-full py-6 justify-start">
+                            <div className="w-full max-w-5xl flex gap-4 md:gap-5 px-4 lg:px-0 mx-auto">
+                                <div className="w-8 h-8 rounded-full bg-[#18181b] flex items-center justify-center shrink-0 border border-white/10 shadow-sm mt-0.5">
+                                    <Bot size={16} className="text-white animate-pulse" />
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <div className="flex gap-1.5 items-center h-8 bg-transparent">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500/80 animate-[bounce_1s_infinite_0ms]"></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500/80 animate-[bounce_1s_infinite_200ms]"></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500/80 animate-[bounce_1s_infinite_400ms]"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} className="h-4 w-full" />
                 </div>
+            </main>
 
-                <div className="p-4 bg-[#0c101c] border-t border-white/[0.04]">
-                    <div className="flex bg-background-dark border border-panel-border rounded-lg overflow-hidden focus-within:border-primary transition-colors">
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                            disabled={loading}
-                            placeholder="Ask agent to get intercepted requests or settings..."
-                            className="flex-1 bg-transparent px-4 py-3 outline-none text-sm text-white disabled:opacity-50"
-                        />
+            {/* Input Area */}
+            <div className="flex-none pb-6 pt-2 px-4 w-full bg-gradient-to-t from-[#09090b] via-[#09090b] to-transparent">
+                <div className="max-w-5xl mx-auto relative rounded-3xl bg-[#18181b] border border-white/10 shadow-lg focus-within:border-white/20 transition-all focus-within:ring-4 focus-within:ring-white/5">
+                    <textarea
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={loading}
+                        placeholder={loading ? "Generating response..." : "Ask the NetraX Assistant..."}
+                        className="w-full max-h-[250px] bg-transparent pl-5 pr-14 py-4 outline-none text-[15px] text-white placeholder:text-zinc-500 resize-none overflow-y-auto custom-scrollbar disabled:opacity-50 min-h-[56px] flex items-center leading-relaxed"
+                        rows={1}
+                        style={{ height: "auto" }}
+                        onInput={(e) => {
+                            e.target.style.height = "auto";
+                            e.target.style.height = (e.target.scrollHeight < 250 ? e.target.scrollHeight : 250) + "px";
+                        }}
+                    />
+                    {loading ? (
+                        <button
+                            onClick={() => CancelAgentChat()}
+                            className="absolute right-2.5 bottom-2.5 p-2 rounded-full bg-red-400 text-black hover:bg-red-500 transition-all shadow-sm"
+                        >
+                            <Square fill="currentColor" size={16} className="translate-x-[0.5px] translate-y-[-0.5px] m-[1px]" />
+                        </button>
+                    ) : (
                         <button
                             onClick={sendMessage}
-                            disabled={loading || !input.trim()}
-                            className="px-4 py-3 bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                            disabled={!input.trim()}
+                            className="absolute right-2.5 bottom-2.5 p-2 rounded-full bg-white text-black hover:bg-zinc-200 disabled:opacity-30 disabled:bg-[#27272a] disabled:text-zinc-500 transition-all shadow-sm"
                         >
-                            <Send size={18} />
+                            <Send size={18} className="translate-x-[1px] translate-y-[-1px]" />
                         </button>
-                    </div>
+                    )}
+                </div>
+                <div className="text-center mt-3">
+                    <p className="text-[11px] text-zinc-500">AI can make mistakes. Verify important traffic interpretations.</p>
                 </div>
             </div>
 
+            {/* Config Modal */}
             <Modal
                 isOpen={isConfigOpen}
                 onClose={() => setIsConfigOpen(false)}
-                title="LLM Configuration"
-                cancelText="Close"
+                title="Assistant Settings"
+                cancelText="Done"
                 type="info"
             >
-                <div className="space-y-4">
+                <div className="space-y-5 py-2">
                     <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Provider / Base URL</label>
-                        <input
-                            type="text"
-                            value={config.baseUrl}
-                            onChange={e => setConfig({ ...config, baseUrl: e.target.value })}
-                            placeholder="Standard OpenAI, Local/Cloud Ollama, LMStudio"
-                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
-                        />
-                        <p className="text-[10px] text-text-secondary mt-1">Leave empty for standard OpenAI. Use `https://generativelanguage.googleapis.com/v1beta/openai/` for Gemini 1.5+. Use `http://localhost:11434/v1` for local Ollama.</p>
+                        <label className="block text-[13px] font-medium text-zinc-300 mb-2">AI Provider</label>
+                        <select
+                            value={currentPreset}
+                            onChange={handleProviderChange}
+                            className="w-full bg-[#09090b] border border-white/10 rounded-xl text-sm text-white px-4 py-2.5 focus:border-white/30 focus:ring-2 focus:ring-white/5 outline-none transition-all shadow-inner mb-3 appearance-none"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                        >
+                            {PROVIDER_PRESETS.map(p => (
+                                <option key={p.url} value={p.url}>{p.label}</option>
+                            ))}
+                        </select>
+
+                        {currentPreset === 'custom' && (
+                            <div>
+                                <label className="block text-[13px] font-medium text-zinc-300 mb-2 mt-4">Custom Base URL</label>
+                                <input
+                                    type="text"
+                                    value={config.baseUrl}
+                                    onChange={e => setConfig({ ...config, baseUrl: e.target.value })}
+                                    placeholder="e.g., http://your-cloud.com:11434/v1"
+                                    className="w-full bg-[#09090b] border border-white/10 rounded-xl text-sm text-white px-4 py-2.5 focus:border-white/30 focus:ring-2 focus:ring-white/5 outline-none transition-all shadow-inner"
+                                />
+                            </div>
+                        )}
+                        <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">Choose an AI provider. NetraX requires OpenAI proxy compatibility (which Ollama, LMStudio, and Gemini support).</p>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">Model Name</label>
+                        <label className="block text-[13px] font-medium text-zinc-300 mb-2">Model Name</label>
                         <input
                             type="text"
                             value={config.model}
                             onChange={e => setConfig({ ...config, model: e.target.value })}
-                            placeholder="gpt-4o-mini, gemini-1.5-flash, llama3:latest"
-                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
+                            placeholder="gpt-4o, claude-3-haiku, llama3"
+                            className="w-full bg-[#09090b] border border-white/10 rounded-xl text-sm text-white px-4 py-2.5 focus:border-white/30 focus:ring-2 focus:ring-white/5 outline-none transition-all shadow-inner"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">API Key</label>
+                        <label className="block text-[13px] font-medium text-zinc-300 mb-2">API Key</label>
                         <input
                             type="password"
                             value={config.apiKey}
                             onChange={e => setConfig({ ...config, apiKey: e.target.value })}
                             placeholder="sk-..."
-                            className="w-full bg-background-dark border border-panel-border rounded-lg text-sm text-white px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all shadow-inner"
+                            className="w-full bg-[#09090b] border border-white/10 rounded-xl text-sm text-white px-4 py-2.5 focus:border-white/30 focus:ring-2 focus:ring-white/5 outline-none transition-all shadow-inner"
                         />
-                        <p className="text-[10px] text-text-secondary mt-1">Stored locally in your browser.</p>
+                        <p className="text-[11px] text-zinc-500 mt-2">Stored securely in your browser's local storage.</p>
                     </div>
 
-                    <div className="pt-4 border-t border-white/5 mt-4">
+                    <div className="pt-6 border-t border-white/10 mt-6 flex justify-between items-center">
+                        <div>
+                            <h4 className="text-[13px] font-medium text-zinc-300">Clear Data</h4>
+                            <p className="text-[11px] text-zinc-500 mt-1">Delete all messages from the database.</p>
+                        </div>
                         <button
                             onClick={() => {
                                 handleClearHistory();
                                 setIsConfigOpen(false);
                             }}
-                            className="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+                            className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors ml-auto"
                         >
-                            <Trash2 size={16} />
-                            Clear Chat History
+                            <Trash2 size={14} />
+                            Clear History
                         </button>
                     </div>
                 </div>
             </Modal>
-
         </div>
     );
 }

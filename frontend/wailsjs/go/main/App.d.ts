@@ -8,6 +8,8 @@ import {config} from '../models';
 
 export function AgentChat(arg1:main.AIModelConfig,arg2:Array<main.ChatMessage>,arg3:string):Promise<Array<main.ChatMessage>>;
 
+export function CancelAgentChat():Promise<void>;
+
 export function CheckProxyBindingsAvailability(arg1:Array<ports.ProxyBinding>):Promise<Array<ports.BindingAvailability>>;
 
 export function ClearAgentHistory():Promise<void>;

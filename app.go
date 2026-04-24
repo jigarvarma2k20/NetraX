@@ -27,6 +27,7 @@ type App struct {
 	DB               *sqlite.DB
 	MCPServer        *mcp.MCPServer
 	autonomousCancel context.CancelFunc
+	chatCancel       context.CancelFunc
 }
 
 // NewApp creates a new App application struct
@@ -114,6 +115,12 @@ func (a *App) GetRequestByID(id int64, withoutBody bool) (*domain.HTTPTransactio
 
 func (a *App) QuitApp() {
 	runtime.Quit(a.ctx)
+}
+
+func (a *App) CancelAgentChat() {
+	if a.chatCancel != nil {
+		a.chatCancel()
+	}
 }
 
 func (a *App) SetIntercept(enabled bool) {

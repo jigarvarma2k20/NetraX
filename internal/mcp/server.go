@@ -1,15 +1,20 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"wailshark/internal/core/domain"
 
+	"github.com/mandolyte/mdtopdf"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -165,6 +170,17 @@ func (m *MCPServer) initServer() {
 	m.srv.AddTool(mcp.NewTool("get_proxy_ca_info",
 		mcp.WithDescription("Fetch information regarding the NetraX CA Certificate used for HTTPS interception (Existence, Path, Common Name)."),
 	), m.handleGetProxyCAInfo)
+
+	m.srv.AddTool(mcp.NewTool("execute_cmd",
+		mcp.WithDescription("Execute a shell command. Handle with care."),
+		mcp.WithString("command", mcp.Description("The shell command string to execute (e.g. ls -la)"), mcp.Required()),
+	), m.handleExecuteCmd)
+
+	m.srv.AddTool(mcp.NewTool("export_report_pdf",
+		mcp.WithDescription("Exports a text report or markdown content to a PDF file on disk."),
+		mcp.WithString("content", mcp.Description("The text or markdown content to export to PDF"), mcp.Required()),
+		mcp.WithString("filename", mcp.Description("Optional filename (e.g. report.pdf). If empty, NetraXReport.pdf is used."), mcp.DefaultString("NetraXReport.pdf")),
+	), m.handleExportReportPdf)
 }
 
 func (m *MCPServer) Start(address string, port int) error {
@@ -526,4 +542,84 @@ func (m *MCPServer) handleGetProxySettings(ctx context.Context, request mcp.Call
 func (m *MCPServer) handleGetProxyCAInfo(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	caInfoJson := m.getProxyCAInfo()
 	return mcp.NewToolResultText(caInfoJson), nil
+}
+
+func (m *MCPServer) handleExecuteCmd(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if !ok {
+		return mcp.NewToolResultError("Invalid arguments format"), nil
+	}
+
+	cmdStr, ok := args["command"].(string)
+	if !ok || cmdStr == "" {
+		return mcp.NewToolResultError("Missing command string"), nil
+	}
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+
+	err := cmd.Run()
+	output := outb.String()
+	if err != nil {
+		output += fmt.Sprintf("\nError: %v\nStderr: %s", err, errb.String())
+		return mcp.NewToolResultError(output), nil
+	}
+
+	return mcp.NewToolResultText(output), nil
+}
+
+func sanitizeForPDF(content string) string {
+	replacements := map[string]string{
+		"—": "-",
+		"–": "-",
+		"‑": "-", // Non-breaking hyphen
+		"“": `"`,
+		"”": `"`,
+		"‘": "'",
+		"’": "'",
+		"…": "...",
+		" ": " ", // Non-breaking space
+		" ": " ", // Narrow no-break space (U+202F)
+	}
+	for k, v := range replacements {
+		content = strings.ReplaceAll(content, k, v)
+	}
+	return content
+}
+
+func (m *MCPServer) handleExportReportPdf(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if !ok {
+		return mcp.NewToolResultError("Invalid arguments format"), nil
+	}
+
+	content, ok := args["content"].(string)
+	if !ok {
+		return mcp.NewToolResultError("Missing content string"), nil
+	}
+
+	content = sanitizeForPDF(content)
+
+	filename, _ := args["filename"].(string)
+	if filename == "" {
+		filename = "NetraXReport.pdf"
+	}
+	if filepath.Ext(filename) != ".pdf" {
+		filename += ".pdf"
+	}
+
+	pf := mdtopdf.NewPdfRenderer("", "", filename, "", nil, mdtopdf.LIGHT)
+	err := pf.Process([]byte(content))
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to write PDF: %v", err)), nil
+	}
+
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		absPath = filename // fallback
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("PDF exported successfully to %s", absPath)), nil
 }

@@ -6,6 +6,10 @@ export function AgentChat(arg1, arg2, arg3) {
   return window['go']['main']['App']['AgentChat'](arg1, arg2, arg3);
 }
 
+export function CancelAgentChat() {
+  return window['go']['main']['App']['CancelAgentChat']();
+}
+
 export function CheckProxyBindingsAvailability(arg1) {
   return window['go']['main']['App']['CheckProxyBindingsAvailability'](arg1);
 }
