@@ -151,7 +151,7 @@ export default function ComparerPage() {
                 <div className="h-6 w-px bg-white/10 mx-2" />
 
                 {/* View Type Toggle */}
-                <div className="flex bg-black/20 p-0.5 rounded-lg">
+                <div className="flex bg-overlay-soft p-0.5 rounded-lg">
                     {['request', 'response'].map(t => (
                         <button
                             key={t}

@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
     return (
         <div className="h-full w-full overflow-y-auto custom-scrollbar bg-background-dark">
-            <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6 lg:p-8">
+            <div className="flex w-full flex-col gap-6 p-6 lg:p-8">
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {metricCards.map((card) => {
                         const Icon = card.icon;

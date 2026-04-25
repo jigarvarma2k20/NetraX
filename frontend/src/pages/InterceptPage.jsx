@@ -64,7 +64,7 @@ export default function InterceptPage() {
       <div className="w-80 border-r border-panel-border flex flex-col bg-panel-dark">
 
         {/* Master Toggles */}
-        <div className="flex flex-col border-b border-panel-border bg-black/20">
+        <div className="flex flex-col border-b border-panel-border bg-overlay-soft">
           <div className="flex items-center gap-2 p-2">
             <button
               onClick={() => {

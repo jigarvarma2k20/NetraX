@@ -64,7 +64,7 @@ export default function DecoderPage() {
         <div className="flex flex-col h-full bg-background-dark text-text-primary">
             {/* Toolbar */}
             <div className="flex items-center gap-4 p-4 border-b border-panel-border bg-panel-dark">
-                <div className="flex bg-black/20 p-1 rounded-lg">
+                <div className="flex bg-overlay-soft p-1 rounded-lg">
                     {['Encode', 'Decode'].map(m => (
                         <button
                             key={m}

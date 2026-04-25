@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import clsx from 'clsx';
 
-export default function Navbar() {
+export default function Navbar({ theme, onToggleTheme }) {
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
     const fileMenuRef = useRef(null);
 
@@ -105,9 +105,9 @@ export default function Navbar() {
         <header className="w-full glass border-b border-white/6 flex flex-col shrink-0 relative z-40">
             <Modal {...modalConfig} onClose={closeModal} />
 
-            <div className="flex items-center gap-6 px-4 h-12 border-b border-white/4 bg-[#0c101c]">
+            <div className="flex items-center gap-6 px-4 h-12 border-b border-white/4 bg-background-dark">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
                     <span className="font-bold text-primary text-sm tracking-wide">NetraX</span>
                 </div>
 
@@ -157,9 +157,17 @@ export default function Navbar() {
                 <div className="flex-1" />
 
                 <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onToggleTheme}
+                        className="p-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-white/5 transition-colors"
+                        title={theme === "dark" ? "Switch to day mode" : "Switch to night mode"}
+                    >
+                        {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
                     <Link
                         to="/settings"
-                        className="p-2 text-text-secondary hover:text-white rounded-md hover:bg-white/5 transition-colors block"
+                        className="p-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-white/5 transition-colors block"
                         title="Settings"
                     >
                         <SettingsIcon size={18} />
@@ -177,8 +185,10 @@ import {
     ShieldAlert,
     Repeat,
     Code2,
-                        SlidersHorizontal,
+    SlidersHorizontal,
     GitCompareArrows,
+    Moon,
+    Sun,
     Settings as SettingsIcon
 } from 'lucide-react';
 

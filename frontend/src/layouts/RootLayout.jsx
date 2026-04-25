@@ -11,7 +11,19 @@ export default function RootLayout() {
     const addPendingResponse = useProxyStore(state => state.addPendingResponse);
 
     const [uptime, setUptime] = useState("0s");
+    const [theme, setTheme] = useState("dark");
     const mountTime = useRef(Date.now());
+
+    useEffect(() => {
+        const savedTheme = localStorage.getItem("netrax-theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        setTheme(savedTheme === "light" || savedTheme === "dark" ? savedTheme : prefersDark ? "dark" : "light");
+    }, []);
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("netrax-theme", theme);
+    }, [theme]);
 
     useEffect(() => {
         startHistoryListening();
@@ -45,17 +57,21 @@ export default function RootLayout() {
 
     }, []);
 
+    const toggleTheme = () => {
+        setTheme(prev => (prev === "dark" ? "light" : "dark"));
+    };
+
     return (
         <div className="flex flex-col h-screen w-full bg-background-dark text-text-primary font-sans selection:bg-primary/20">
-            <Navbar />
-            <main className="flex-1 overflow-hidden relative px-4 pb-4 pt-4">
+            <Navbar theme={theme} onToggleTheme={toggleTheme} />
+            <main className="flex-1 overflow-hidden relative pb-4 pt-4">
                 <div className="h-full w-full overflow-hidden">
                     <Outlet />
                 </div>
             </main>
 
             {/* Status Bar */}
-            <footer className="h-6 bg-[#0c101c] border-t border-white/6 flex items-center px-4 text-[10px] text-text-secondary/60 shrink-0 select-none">
+            <footer className="h-6 bg-panel-dark border-t border-white/6 flex items-center px-4 text-[10px] text-text-secondary/60 shrink-0 select-none">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                         <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
