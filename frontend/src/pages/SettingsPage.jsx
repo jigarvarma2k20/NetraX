@@ -318,7 +318,7 @@ export default function SettingsPage() {
 
     return (
         <div className="flex-1 bg-background-dark p-8 overflow-y-auto w-full h-full custom-scrollbar">
-            <div className="max-w-4xl mx-auto space-y-8">
+            <div className="w-full space-y-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
                         <SettingsIcon size={24} className="text-primary" />
