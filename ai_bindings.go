@@ -144,7 +144,7 @@ func (a *App) getAgentTools() []llmTool {
 		Function: llmFunction{
 			Name:        "start_autopilot",
 			Description: "Starts an autonomous background polling loop that will execute a specific instruction continuously. This enables the agent to evaluate and intercept traffic even when the user is inactive.",
-			Parameters:  json.RawMessage(`{"type":"object","properties":{"instruction":{"type":"string","description":"The exact rule you will execute on requests inside the loop."}},"required":["instruction"]}`),
+			Parameters:  json.RawMessage(`{"type":"object","properties":{"instruction":{"type":"string","description":"The exact rule you will execute on requests inside the loop."},"url_regex":{"type":"string","description":"Optional. A regular expression to match specific target domains or URLs. Setting this filters out all unmatched traffic locally drastically improving proxy latency."}},"required":["instruction"]}`),
 		},
 	})
 
@@ -168,9 +168,10 @@ func (a *App) processToolCalls(config AIModelConfig, msg agentMessage) []agentMe
 			runtime.EventsEmit(a.ctx, "agent_log", "Tool Call: start_autopilot")
 			var args struct {
 				Instruction string `json:"instruction"`
+				URLRegex    string `json:"url_regex"`
 			}
 			json.Unmarshal([]byte(tc.Function.Arguments), &args)
-			a.StartAutonomousAgent(config, args.Instruction)
+			a.StartAutonomousAgent(config, args.Instruction, args.URLRegex)
 			resultStr = "Started AutoPilot loop successfully."
 		} else if tc.Function.Name == "stop_autopilot" {
 			runtime.EventsEmit(a.ctx, "agent_log", "Tool Call: stop_autopilot")
@@ -304,14 +305,19 @@ func (a *App) AgentChat(config AIModelConfig, history []ChatMessage, userMsg str
 }
 
 // AUTONOMOUS BACKGROUND AGENT
-func (a *App) StartAutonomousAgent(config AIModelConfig, instruction string) {
+func (a *App) StartAutonomousAgent(config AIModelConfig, instruction string, urlRegex string) {
 	if a.autonomousCancel != nil {
 		a.autonomousCancel() // cancel previous
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.autonomousCancel = cancel
+	a.Proxy.SetInterceptRegex(urlRegex)
 	a.SetIntercept(true)
-	runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot initialized and traffic interception enabled.")
+	if urlRegex != "" {
+		runtime.EventsEmit(a.ctx, "agent_log", fmt.Sprintf("AutoPilot initialized. Traffic interception enabled with regex filter: %s", urlRegex))
+	} else {
+		runtime.EventsEmit(a.ctx, "agent_log", "AutoPilot initialized and traffic interception enabled.")
+	}
 
 	go a.runAutoPilot(ctx, config, instruction)
 }
@@ -325,7 +331,7 @@ func (a *App) StopAutonomousAgent() {
 }
 
 func (a *App) runAutoPilot(ctx context.Context, config AIModelConfig, instruction string) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	// Ensure correct base URL formats (identical to standard execution)
@@ -374,7 +380,7 @@ func (a *App) runAutoPilot(ctx context.Context, config AIModelConfig, instructio
 			var msgs []agentMessage
 			msgs = append(msgs, agentMessage{
 				Role:    "system",
-				Content: fmt.Sprintf("You are operating as an Autonomous AutoPilot looping in the background.\nINSTRUCTION FROM USER:\n%s\n\nYour task is to take immediate action on intercepted traffic continuously. Do NOT give conversational responses. You must evaluate the items and use the required tools (e.g drop_request, forward_request, execute_request).", instruction),
+				Content: fmt.Sprintf("You are operating as an Autonomous AutoPilot looping in the background.\nINSTRUCTION FROM USER:\n%s\n\nYour task is to take immediate action on intercepted traffic continuously. Do NOT give conversational responses. You must evaluate the items and use the required tools (e.g drop_request, forward_request, execute_request). For better performance, batch your actions by making multiple parallel tool calls in a single response.", instruction),
 			})
 			msgs = append(msgs, agentMessage{Role: "user", Content: string(trafficDump)})
 

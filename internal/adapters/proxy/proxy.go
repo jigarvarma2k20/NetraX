@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,6 +31,8 @@ type ProxyHandler struct {
 	Ctx                         context.Context // Context for the proxy operations
 	DB                          *sqlite.DB
 	InterceptEnabled            atomic.Bool
+	InterceptRegex              string
+	interceptCompiled           *regexp.Regexp
 	PendingRequests             sync.Map // key: id (int64), value: chan InterceptAction
 	PendingResponses            sync.Map // key: id (int64), value: chan InterceptAction
 	RequestsToInterceptResponse sync.Map // key: id (int64), value: bool
@@ -199,6 +202,11 @@ func (p *ProxyHandler) Start() {
 			ctx.UserData = id
 
 			if p.InterceptEnabled.Load() {
+				// Regex bypass check
+				if p.interceptCompiled != nil && !p.interceptCompiled.MatchString(req.Host) && !p.interceptCompiled.MatchString(req.URL.String()) {
+					return req, nil
+				}
+
 				// Block request
 				actionChan := make(chan InterceptAction, 1)
 				p.PendingRequests.Store(id, actionChan)
@@ -252,6 +260,10 @@ func (p *ProxyHandler) Start() {
 						}
 					}
 
+					if req.Header == nil {
+						req.Header = make(http.Header)
+					}
+
 					// Body
 					newBody := io.NopCloser(strings.NewReader(mod.Body))
 					req.Body = newBody
@@ -267,6 +279,10 @@ func (p *ProxyHandler) Start() {
 	// Intercept all HTTP responses
 	proxy.OnResponse().DoFunc(
 		func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
+			if resp == nil {
+				return resp
+			}
+
 			var id int64
 			if idx, ok := ctx.UserData.(int64); ok {
 				id = idx
@@ -334,6 +350,10 @@ func (p *ProxyHandler) Start() {
 							}
 						}
 
+						if resp.Header == nil {
+							resp.Header = make(http.Header)
+						}
+
 						// Strip encoding headers
 						resp.Header.Del("Content-Encoding")
 						resp.Header.Del("Transfer-Encoding")
@@ -398,10 +418,30 @@ func (p *ProxyHandler) Restart() {
 	go p.Start()
 }
 
+func (p *ProxyHandler) SetInterceptRegex(regexStr string) {
+	p.serverMu.Lock()
+	defer p.serverMu.Unlock()
+	p.InterceptRegex = regexStr
+	if regexStr != "" {
+		c, err := regexp.Compile(regexStr)
+		if err == nil {
+			p.interceptCompiled = c
+			log.Printf("Proxy Interceptor compiled Domain Filter Regex: %s", regexStr)
+		} else {
+			log.Printf("Failed to compile Domain Filter Regex: %v", err)
+			p.interceptCompiled = nil
+		}
+	} else {
+		p.interceptCompiled = nil
+	}
+}
+
 func (p *ProxyHandler) SetIntercept(enabled bool) {
 	p.InterceptEnabled.Store(enabled)
 	p.SendToFrontend("interceptStatus", enabled)
 	if !enabled {
+		p.SetInterceptRegex("")
+		p.interceptCompiled = nil
 		p.FlushPending()
 	}
 }
