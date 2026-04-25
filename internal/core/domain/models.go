@@ -41,26 +41,46 @@ type HTTPResponseDTO struct {
 }
 
 func ToHTTPRequestDTO(r *http.Request) HTTPRequestDTO {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		body = nil // Handle error appropriately, maybe log it
-	}
-	r.Body = io.NopCloser(io.Reader(bytes.NewBuffer(body))) // Reset the body for further use
-
-	headers, err := parser.HeadersToJSON(r.Header)
-	if err != nil {
-		fmt.Printf("Failed to convert headers to JSON: %v", err)
+	if r == nil {
+		return HTTPRequestDTO{}
 	}
 
-	transferEncoding, err := parser.HeadersToJSON(r.TransferEncoding)
-	if err != nil {
-		fmt.Printf("Failed to convert transfer encoding to JSON: %v", err)
-		transferEncoding = "[]"
+	var body []byte
+	var err error
+	if r.Body != nil {
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			body = nil
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
+	}
+
+	var headers string = "{}"
+	if r.Header != nil {
+		headers, err = parser.HeadersToJSON(r.Header.Clone())
+		if err != nil {
+			fmt.Printf("Failed to convert headers to JSON: %v\n", err)
+			headers = "{}"
+		}
+	}
+
+	var transferEncoding string = "[]"
+	if r.TransferEncoding != nil {
+		transferEncoding, err = parser.HeadersToJSON(r.TransferEncoding)
+		if err != nil {
+			fmt.Printf("Failed to convert transfer encoding to JSON: %v\n", err)
+			transferEncoding = "[]"
+		}
+	}
+
+	urlStr := ""
+	if r.URL != nil {
+		urlStr = r.URL.String()
 	}
 
 	return HTTPRequestDTO{
 		Method:           r.Method,
-		URL:              r.URL.String(),
+		URL:              urlStr,
 		Proto:            r.Proto,
 		Host:             r.Host,
 		RemoteAddr:       r.RemoteAddr,
@@ -73,25 +93,38 @@ func ToHTTPRequestDTO(r *http.Request) HTTPRequestDTO {
 }
 
 func ToHTTPResponseDTO(resp *http.Response) HTTPResponseDTO {
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		body = nil // Handle error appropriately, maybe log it
+	if resp == nil {
+		return HTTPResponseDTO{}
 	}
 
-	resp.Body = io.NopCloser(io.Reader(bytes.NewBuffer(body))) // Reset the body for further use
-
-	headers, err := parser.HeadersToJSON(resp.Header)
-	if err != nil {
-		fmt.Printf("Failed to convert headers to JSON: %v", err)
+	var body []byte
+	var err error
+	if resp.Body != nil {
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			body = nil
+		}
+		resp.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
-	// now read copy for DTO
+
+	var headers string = "{}"
+	var contentType string = ""
+	if resp.Header != nil {
+		headers, err = parser.HeadersToJSON(resp.Header.Clone())
+		if err != nil {
+			fmt.Printf("Failed to convert headers to JSON: %v\n", err)
+			headers = "{}"
+		}
+		contentType = resp.Header.Get("Content-Type")
+	}
+
 	return HTTPResponseDTO{
 		Status:        resp.Status,
 		StatusCode:    resp.StatusCode,
 		Proto:         resp.Proto,
 		Header:        headers,
-		ContentLength: len(body), // incase of chunked transfer encoding, this will be -1 so
-		ContentType:   resp.Header.Get("Content-Type"),
+		ContentLength: len(body),
+		ContentType:   contentType,
 		Body:          string(body),
 	}
 }

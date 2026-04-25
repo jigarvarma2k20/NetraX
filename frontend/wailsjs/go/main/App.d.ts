@@ -66,7 +66,7 @@ export function SaveSettings(arg1:config.Settings):Promise<void>;
 
 export function SetIntercept(arg1:boolean):Promise<void>;
 
-export function StartAutonomousAgent(arg1:main.AIModelConfig,arg2:string):Promise<void>;
+export function StartAutonomousAgent(arg1:main.AIModelConfig,arg2:string,arg3:string):Promise<void>;
 
 export function StartMCPServer(arg1:string,arg2:number):Promise<void>;
 
