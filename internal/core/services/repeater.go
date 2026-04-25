@@ -3,7 +3,8 @@ package services
 import (
 	"net/http"
 	"strings"
-	"wailshark/internal/core/domain"
+
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
 	// Assuming this exists or I need to check
 )
 

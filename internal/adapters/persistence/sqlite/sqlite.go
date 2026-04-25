@@ -3,7 +3,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"wailshark/internal/core/domain"
+
+	"github.com/jigarvarma2k20/netrax/internal/core/domain"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -77,6 +78,12 @@ func createTables(conn *sql.DB) error {
 		header TEXT,
 		body TEXT,
 		modified_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS agent_history (
+		id INTEGER PRIMARY KEY,
+		role TEXT,
+		content TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
 	_, err := conn.Exec(schema)
@@ -349,4 +356,40 @@ func (db *DB) GetRepeaters() ([]RepeaterRequest, error) {
 		requests = append(requests, r)
 	}
 	return requests, nil
+}
+
+type AgentMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func (db *DB) SaveAgentMessage(role, content string) error {
+	query := `INSERT INTO agent_history (role, content) VALUES (?, ?)`
+	_, err := db.conn.Exec(query, role, content)
+	return err
+}
+
+func (db *DB) GetAgentHistory() ([]AgentMessage, error) {
+	query := `SELECT role, content FROM agent_history ORDER BY id ASC`
+	rows, err := db.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var msgs []AgentMessage
+	for rows.Next() {
+		var m AgentMessage
+		if err := rows.Scan(&m.Role, &m.Content); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs, nil
+}
+
+func (db *DB) ClearAgentHistory() error {
+	query := `DELETE FROM agent_history`
+	_, err := db.conn.Exec(query)
+	return err
 }

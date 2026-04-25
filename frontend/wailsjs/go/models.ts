@@ -136,6 +136,22 @@ export namespace domain {
 
 export namespace main {
 	
+	export class AIModelConfig {
+	    apiKey: string;
+	    baseUrl: string;
+	    model: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIModelConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiKey = source["apiKey"];
+	        this.baseUrl = source["baseUrl"];
+	        this.model = source["model"];
+	    }
+	}
 	export class CAInfo {
 	    exists: boolean;
 	    path: string;
@@ -150,6 +166,20 @@ export namespace main {
 	        this.exists = source["exists"];
 	        this.path = source["path"];
 	        this.errorMsg = source["errorMsg"];
+	    }
+	}
+	export class ChatMessage {
+	    role: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ChatMessage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.role = source["role"];
+	        this.content = source["content"];
 	    }
 	}
 

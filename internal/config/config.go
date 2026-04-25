@@ -13,7 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	"wailshark/internal/core/ports"
+
+	"github.com/jigarvarma2k20/netrax/internal/core/ports"
 )
 
 type Settings struct {

@@ -152,6 +152,8 @@ export default function Navbar({ theme, onToggleTheme }) {
                     <InternalNavItem to="/repeater" label="Repeater" icon="repeat" />
                     <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
                     <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
+                    <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
+                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
                 </div>
 
                 <div className="flex-1" />
@@ -205,7 +207,8 @@ const InternalNavItem = ({ to, icon, label, badge }) => {
         'code-2': Code2,
         'sliders-horizontal': SlidersHorizontal,
         'git-compare-arrows': GitCompareArrows,
-        'settings': SettingsIcon
+        'settings': SettingsIcon,
+        'bot': Bot
     };
     const IconComp = IconMap[icon] || Code2;
 

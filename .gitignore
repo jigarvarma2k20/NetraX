@@ -46,3 +46,5 @@ Thumbs.db
 .env
 .env.*.local
 
+
+*.pdf
