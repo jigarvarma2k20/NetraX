@@ -145,15 +145,14 @@ export default function Navbar({ theme, onToggleTheme }) {
             <div className="flex items-center px-4 h-12 gap-4 bg-panel-dark">
                 <div className="flex gap-1 overflow-x-auto no-scrollbar">
                     <InternalNavItem to="/dashboard" label="Dashboard" icon="layout-dashboard" />
-                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
+                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
                     <InternalNavItem to="/history" label="History" icon="history" />
-                    <InternalNavItem to="/intruder" label="Intruder" icon="zap" />
                     <InternalNavItem to="/intercept" label="Interceptor" icon="shield-alert" />
                     <InternalNavItem to="/repeater" label="Repeater" icon="repeat" />
                     <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
                     <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
                     <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
-                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
+                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
                 </div>
 
                 <div className="flex-1" />
@@ -189,6 +188,7 @@ import {
     Code2,
     SlidersHorizontal,
     GitCompareArrows,
+    Bot,
     Moon,
     Sun,
     Settings as SettingsIcon

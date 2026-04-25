@@ -1,7 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { GetRequestByID } from '../../wailsjs/go/main/App';
 import { GitCompareArrows, Download, ArrowLeftRight, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
+
+const COMPARER_STATE_KEY = 'netrax.comparer.state';
 
 // Simple line-by-line diff
 function computeDiff(textA, textB) {
@@ -50,6 +54,7 @@ function formatMessage(dto, type) {
 }
 
 export default function ComparerPage() {
+    const [searchParams] = useSearchParams();
     const [idA, setIdA] = useState('');
     const [idB, setIdB] = useState('');
     const [dataA, setDataA] = useState(null);
@@ -57,6 +62,28 @@ export default function ComparerPage() {
     const [loading, setLoading] = useState({ a: false, b: false });
     const [viewType, setViewType] = useState('request'); // request or response
     const [diffMode, setDiffMode] = useState('side'); // side or unified
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const raw = window.localStorage.getItem(COMPARER_STATE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+
+            if (typeof saved.idA === 'string') setIdA(saved.idA);
+            if (typeof saved.idB === 'string') setIdB(saved.idB);
+            if (saved.dataA) setDataA(saved.dataA);
+            if (saved.dataB) setDataB(saved.dataB);
+            if (saved.viewType === 'request' || saved.viewType === 'response') {
+                setViewType(saved.viewType);
+            }
+            if (saved.diffMode === 'side' || saved.diffMode === 'unified') {
+                setDiffMode(saved.diffMode);
+            }
+        } catch {
+            // ignore malformed cache
+        }
+    }, []);
 
     const loadRequest = useCallback(async (id, slot) => {
         const parsedId = parseInt(id);
@@ -73,6 +100,39 @@ export default function ComparerPage() {
             setLoading(prev => ({ ...prev, [slot]: false }));
         }
     }, []);
+
+    useEffect(() => {
+        const queryA = searchParams.get('a');
+        const queryB = searchParams.get('b');
+
+        if (!queryA && !queryB) return;
+
+        if (queryA) {
+            setIdA(queryA);
+            loadRequest(queryA, 'a');
+        }
+
+        if (queryB) {
+            setIdB(queryB);
+            loadRequest(queryB, 'b');
+        }
+    }, [searchParams, loadRequest]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.localStorage.setItem(COMPARER_STATE_KEY, JSON.stringify({
+                idA,
+                idB,
+                dataA,
+                dataB,
+                viewType,
+                diffMode
+            }));
+        } catch {
+            // ignore storage errors
+        }
+    }, [idA, idB, dataA, dataB, viewType, diffMode]);
 
     const textA = useMemo(() => {
         if (!dataA) return '';

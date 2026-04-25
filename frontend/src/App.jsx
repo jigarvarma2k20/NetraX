@@ -14,18 +14,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const McpPage = lazy(() => import('./pages/McpPage'));
 const AgentPage = lazy(() => import('./pages/AgentPage.jsx'));
 
-const IntruderPage = () => (
-  <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary/50">
-    <div className="p-4 bg-primary/5 rounded-full">
-      <Loader2 size={32} className="text-primary/30" />
-    </div>
-    <div className="text-center">
-      <p className="text-lg font-medium text-text-secondary/60">Intruder</p>
-      <p className="text-xs text-text-secondary/40 mt-1">Coming Soon</p>
-    </div>
-  </div>
-);
-
 const GlobalLoader = () => (
   <div className="flex items-center justify-center h-full w-full bg-background-dark text-primary">
     <Loader2 className="animate-spin" size={48} />
@@ -78,7 +66,6 @@ export default function App() {
               <Route path="history" element={<HistoryPage />} />
               <Route path="intercept" element={<InterceptPage />} />
               <Route path="repeater" element={<RepeaterPage />} />
-              <Route path="intruder" element={<IntruderPage />} />
               <Route path="decoder" element={<DecoderPage />} />
               <Route path="comparer" element={<ComparerPage />} />
               <Route path="settings" element={<SettingsPage />} />

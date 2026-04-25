@@ -1,7 +1,20 @@
 import { GetRequestByID } from '../../wailsjs/go/main/App';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-export default function TrafficTable({ transactions = [], selected, onSelect, loadMore, hasMore }) {
+export default function TrafficTable({
+  transactions = [],
+  selected,
+  onSelect,
+  loadMore,
+  hasMore,
+  onCopyUrl,
+  onCopyCurl,
+  onCopyPythonRequests,
+  onCopyFetch,
+  onSendToRepeater,
+  onSendToComparer
+}) {
+  const [contextMenu, setContextMenu] = useState(null);
 
   const selectTransaction = useCallback((txn) => {
     onSelect?.(txn);
@@ -11,6 +24,31 @@ export default function TrafficTable({ transactions = [], selected, onSelect, lo
       })
       .catch(() => { });
   }, [onSelect]);
+
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    const onEscape = (e) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('keydown', onEscape);
+
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('keydown', onEscape);
+    };
+  }, []);
+
+  const runAction = async (handler, txn) => {
+    setContextMenu(null);
+    if (!handler) return;
+    try {
+      await handler(txn);
+    } catch {
+      // silently handle
+    }
+  };
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -32,6 +70,7 @@ export default function TrafficTable({ transactions = [], selected, onSelect, lo
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex w-full bg-[#0c101c] text-text-secondary text-xs font-bold border-b border-white/[0.04] shrink-0 uppercase tracking-wider sticky top-0 z-10">
+        <div className="w-20 p-3 border-r border-white/[0.04]">Id</div>
         <div className="w-24 p-3 border-r border-white/[0.04]">Method</div>
         <div className="w-24 p-3 border-r border-white/[0.04]">Status</div>
         <div className="flex-1 p-3 border-r border-white/[0.04]">URL</div>
@@ -55,8 +94,16 @@ export default function TrafficTable({ transactions = [], selected, onSelect, lo
             <div
               key={t.index}
               onClick={() => selectTransaction(t)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                selectTransaction(t);
+                setContextMenu({ x: e.clientX, y: e.clientY, txn: t });
+              }}
               className={`flex items-center hover:bg-white/[0.03] cursor-pointer border-b border-white/[0.04] text-sm font-mono transition-colors ${isSelected ? "bg-primary/[0.06] border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}
             >
+              <div className="w-20 p-2.5 shrink-0 text-text-secondary">
+                {t.index}
+              </div>
               <div className="w-24 p-2.5 shrink-0">
                 <span className={`px-2 py-0.5 text-xs rounded font-medium ${methodColors[t.request.method] || 'bg-white/10 text-text-secondary'}`}>
                   {t.request.method}
@@ -80,6 +127,60 @@ export default function TrafficTable({ transactions = [], selected, onSelect, lo
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-56 rounded-md border border-white/10 bg-[#101724] py-1 text-xs shadow-2xl"
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => runAction(onCopyUrl, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Copy URL
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction(onCopyCurl, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Copy as cURL
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction(onCopyPythonRequests, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Copy as requests (Python)
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction(onCopyFetch, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Copy as fetch
+          </button>
+
+          <div className="my-1 h-px bg-white/8" />
+
+          <button
+            type="button"
+            onClick={() => runAction(onSendToRepeater, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Send to Repeater
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction(onSendToComparer, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Send to Comparer
+          </button>
+        </div>
+      )}
     </div>
   );
 }
