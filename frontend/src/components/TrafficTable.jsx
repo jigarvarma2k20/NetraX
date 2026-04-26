@@ -96,7 +96,6 @@ export default function TrafficTable({
               onClick={() => selectTransaction(t)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                selectTransaction(t);
                 setContextMenu({ x: e.clientX, y: e.clientY, txn: t });
               }}
               className={`flex items-center hover:bg-white/[0.03] cursor-pointer border-b border-white/[0.04] text-sm font-mono transition-colors ${isSelected ? "bg-primary/[0.06] border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}

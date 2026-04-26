@@ -5,6 +5,7 @@ import { useProxyStore } from "../stores/useProxyStore";
 import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import clsx from 'clsx';
+import netraxLogo from '../assets/images/netrax.png';
 
 export default function Navbar({ theme, onToggleTheme }) {
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
@@ -106,9 +107,12 @@ export default function Navbar({ theme, onToggleTheme }) {
             <Modal {...modalConfig} onClose={closeModal} />
 
             <div className="flex items-center gap-6 px-4 h-12 border-b border-white/4 bg-background-dark">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                    <span className="font-bold text-primary text-sm tracking-wide">NetraX</span>
+                <div className="flex items-center">
+                    <img
+                        src={netraxLogo}
+                        alt="NetraX"
+                        className="h-32 w-32 object-contain"
+                    />
                 </div>
 
                 <nav className="flex items-center gap-7 text-xs font-medium text-text-secondary relative">
