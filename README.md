@@ -13,23 +13,23 @@ Built with **Wails** and powered by a highly concurrent **Go** backend, it deliv
 NetraX distinguishes itself by deeply integrating Model Context Protocol (MCP) and an embedded **Cybersecurity AI Agent**, enabling unparalleled traffic analysis, payload debugging, and automated threat hunting.
 
 
-## 🚀 Key Features
+## Key Features
 
-### 🤖 NetraX AI Assistant
+### NetraX AI Assistant
 Your dedicated cybersecurity copilot integrated directly into the proxy layout:
 - **Intelligent Debugging**: Ask the AI to identify anomalies or explain payloads dynamically based on live proxy traffic.
 - **Provider Agnostic**: Connects seamlessly with standard **OpenAI (ChatGPT)**, **Google (Gemini)**, **Ollama (Local/Cloud)**, or raw Custom Endpoints inside the native UI dropdown.
 - **AutoPilot Mode**: Activate an autonomous agent loop that monitors, evaluates, and intercepts your live traffic invisibly in the background.
 - **Export Engine**: Generate comprehensive, highly formatted PDF reports directly from the AI chat.
 
-### 🔍 Core Proxy Modules
+### Core Proxy Modules
 - **History**: Capture, query, and inspect headers, cookies, and bodies with rich syntax highlighting.
 - **Interceptor**: Halt traffic on the wire! Pause, modify, and drop requests or responses dynamically.
 - **Repeater**: Craft custom requests or replay captured ones to test vulnerabilities incredibly fast.
 - **Comparer**: Visually differentiate responses. Great for bypass testing!
 - **Decoder**: Natively translate Base64, URL Encodings, Hex, and binary schemas.
 
-### ⚙️ Deep System Integration
+### Deep System Integration
 - **Model Context Protocol (MCP)**: Native backend tooling allowing the LLM to run system-level shell commands, query proxy states, read raw bytes, or write reports directly.
 - **Lightweight Architecture**: A low-overhead React + Tailwind frontend glued instantly to Go routines with zero heavy Electron bloat.
 

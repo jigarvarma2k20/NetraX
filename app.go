@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,7 +34,12 @@ type App struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	db, err := sqlite.InitDB("./netrax.db")
+	dir, err := config.GetConfigDir()
+	if err != nil {
+		panic(err)
+	}
+	dbPath := filepath.Join(dir, "netrax.db")
+	db, err := sqlite.InitDB(dbPath)
 	if err != nil {
 		panic(err)
 	}

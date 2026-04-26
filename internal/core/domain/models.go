@@ -2,11 +2,18 @@ package domain
 
 import (
 	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
+	"github.com/andybalholm/brotli"
 	"github.com/jigarvarma2k20/netrax/internal/utils/parser"
+	"github.com/klauspost/compress/zstd"
+	"golang.org/x/net/html/charset"
+	"golang.org/x/text/transform"
 )
 
 type HTTPTransactionDTO struct {
@@ -40,36 +47,115 @@ type HTTPResponseDTO struct {
 	Body          string `json:"body"`
 }
 
+func decodeBody(raw []byte, headers http.Header) ([]byte, string) {
+	if len(raw) == 0 {
+		return raw, ""
+	}
+
+	encoding := strings.ToLower(headers.Get("Content-Encoding"))
+	var body []byte
+
+	switch {
+	case encoding == "gzip" || bytes.HasPrefix(raw, []byte{0x1f, 0x8b}):
+		gr, err := gzip.NewReader(bytes.NewReader(raw))
+		if err == nil {
+			defer gr.Close()
+			body, _ = io.ReadAll(gr)
+		} else {
+			body = raw
+		}
+
+	case encoding == "br":
+		br := brotli.NewReader(bytes.NewReader(raw))
+		body, _ = io.ReadAll(br)
+
+	case encoding == "deflate" || bytes.HasPrefix(raw, []byte{0x78, 0x9c}):
+		zr, err := zlib.NewReader(bytes.NewReader(raw))
+		if err == nil {
+			defer zr.Close()
+			body, _ = io.ReadAll(zr)
+		} else {
+			body = raw
+		}
+
+	case encoding == "zstd":
+		dec, err := zstd.NewReader(bytes.NewReader(raw))
+		if err == nil {
+			defer dec.Close()
+			body, _ = io.ReadAll(dec)
+		} else {
+			body = raw
+		}
+
+	default:
+		body = raw
+	}
+
+	ct := strings.ToLower(headers.Get("Content-Type"))
+
+	isText := strings.Contains(ct, "text") ||
+		strings.Contains(ct, "json") ||
+		strings.Contains(ct, "xml") ||
+		strings.Contains(ct, "html") ||
+		strings.Contains(ct, "form-urlencoded")
+
+	if len(body) > 0 && !isText {
+		printable := 0
+		for i := 0; i < len(body) && i < 100; i++ {
+			if body[i] >= 32 && body[i] <= 126 {
+				printable++
+			}
+		}
+		if printable > 70 {
+			isText = true
+		}
+	}
+
+	if !isText {
+		return body, fmt.Sprintf("[binary data %d bytes]", len(body))
+	}
+
+	reader, err := charset.NewReader(bytes.NewReader(body), ct)
+	if err == nil {
+		decoded, _ := io.ReadAll(reader)
+		return body, string(decoded)
+	}
+
+	e, _, _ := charset.DetermineEncoding(body, ct)
+	decodedReader := transform.NewReader(bytes.NewReader(body), e.NewDecoder())
+	decoded, _ := io.ReadAll(decodedReader)
+
+	return body, string(decoded)
+}
+
 func ToHTTPRequestDTO(r *http.Request) HTTPRequestDTO {
 	if r == nil {
 		return HTTPRequestDTO{}
 	}
 
-	var body []byte
-	var err error
+	raw := []byte{}
 	if r.Body != nil {
-		body, err = io.ReadAll(r.Body)
-		if err != nil {
-			body = nil
-		}
-		r.Body = io.NopCloser(bytes.NewBuffer(body))
+		raw, _ = io.ReadAll(r.Body)
 	}
+
+	decoded, bodyStr := decodeBody(raw, r.Header)
+
+	// restore original raw body
+	r.Body = io.NopCloser(bytes.NewBuffer(raw))
 
 	var headers string = "{}"
 	if r.Header != nil {
-		headers, err = parser.HeadersToJSON(r.Header.Clone())
-		if err != nil {
-			fmt.Printf("Failed to convert headers to JSON: %v\n", err)
-			headers = "{}"
+		h, err := parser.HeadersToJSON(r.Header.Clone())
+		if err == nil {
+			headers = h
 		}
 	}
 
 	var transferEncoding string = "[]"
 	if r.TransferEncoding != nil {
-		transferEncoding, err = parser.HeadersToJSON(r.TransferEncoding)
-		if err != nil {
-			fmt.Printf("Failed to convert transfer encoding to JSON: %v\n", err)
-			transferEncoding = "[]"
+		te, err := parser.HeadersToJSON(r.TransferEncoding)
+		if err == nil {
+			transferEncoding = te
 		}
 	}
 
@@ -85,10 +171,10 @@ func ToHTTPRequestDTO(r *http.Request) HTTPRequestDTO {
 		Host:             r.Host,
 		RemoteAddr:       r.RemoteAddr,
 		Header:           headers,
-		ContentLength:    r.ContentLength,
+		ContentLength:    int64(len(decoded)),
 		TransferEncoding: transferEncoding,
 		Close:            r.Close,
-		Body:             string(body),
+		Body:             bodyStr,
 	}
 }
 
@@ -97,23 +183,23 @@ func ToHTTPResponseDTO(resp *http.Response) HTTPResponseDTO {
 		return HTTPResponseDTO{}
 	}
 
-	var body []byte
-	var err error
+	raw := []byte{}
 	if resp.Body != nil {
-		body, err = io.ReadAll(resp.Body)
-		if err != nil {
-			body = nil
-		}
-		resp.Body = io.NopCloser(bytes.NewBuffer(body))
+		raw, _ = io.ReadAll(resp.Body)
 	}
 
+	decoded, bodyStr := decodeBody(raw, resp.Header)
+
+	// restore original raw body (IMPORTANT)
+	resp.Body = io.NopCloser(bytes.NewBuffer(raw))
+
 	var headers string = "{}"
-	var contentType string = ""
+	var contentType string
+
 	if resp.Header != nil {
-		headers, err = parser.HeadersToJSON(resp.Header.Clone())
-		if err != nil {
-			fmt.Printf("Failed to convert headers to JSON: %v\n", err)
-			headers = "{}"
+		h, err := parser.HeadersToJSON(resp.Header.Clone())
+		if err == nil {
+			headers = h
 		}
 		contentType = resp.Header.Get("Content-Type")
 	}
@@ -123,8 +209,8 @@ func ToHTTPResponseDTO(resp *http.Response) HTTPResponseDTO {
 		StatusCode:    resp.StatusCode,
 		Proto:         resp.Proto,
 		Header:        headers,
-		ContentLength: len(body),
+		ContentLength: len(decoded),
 		ContentType:   contentType,
-		Body:          string(body),
+		Body:          bodyStr,
 	}
 }
