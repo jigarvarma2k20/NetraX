@@ -37,21 +37,21 @@
 
 [data-theme="light"] {
   color-scheme: light;
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-glow: rgba(37, 99, 235, 0.16);
-  --color-background-dark: #f3f7ff;
+  --color-primary: #f59e0b;
+  --color-primary-hover: #d97706;
+  --color-primary-glow: rgba(245, 158, 11, 0.18);
+  --color-background-dark: #fffdf7;
   --color-panel-dark: #ffffff;
-  --color-surface-dark: #e8efff;
-  --color-panel-border: #d8e2f3;
+  --color-surface-dark: #fff7e6;
+  --color-panel-border: #f1e2c6;
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
   --color-accent-green: #059669;
   --color-accent-red: #dc2626;
   --color-accent-yellow: #d97706;
-  --color-accent-blue: #2563eb;
-  --overlay-soft: rgba(15, 23, 42, 0.06);
-  --overlay-medium: rgba(15, 23, 42, 0.1);
+  --color-accent-blue: #f59e0b;
+  --overlay-soft: rgba(245, 158, 11, 0.06);
+  --overlay-medium: rgba(245, 158, 11, 0.12);
   --overlay-modal: rgba(15, 23, 42, 0.45);
 }
 
@@ -126,11 +126,11 @@ button:hover {
 }
 
 [data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: rgba(37, 99, 235, 0.25);
+  background: rgba(245, 158, 11, 0.25);
 }
 
 [data-theme="light"] * {
-  scrollbar-color: rgba(37, 99, 235, 0.25) transparent;
+  scrollbar-color: rgba(245, 158, 11, 0.25) transparent;
 }
 
 .no-scrollbar::-webkit-scrollbar {

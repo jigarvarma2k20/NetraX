@@ -81,6 +81,47 @@ export const useRepeaterStore = create((set, get) => ({
         }
     },
 
+    addTabFromTransaction: async (transaction) => {
+        if (!transaction?.request) return null;
+
+        const req = transaction.request;
+        const newName = `History #${transaction.index}`;
+        const method = req.method || "GET";
+        const url = req.url || "https://example.com";
+        const proto = req.proto || "HTTP/1.1";
+        const header = typeof req.header === 'string'
+            ? req.header
+            : JSON.stringify(req.header || {});
+        const body = req.body || "";
+
+        try {
+            const id = await SaveRepeater(newName, method, url, proto, header, body);
+            const newTab = {
+                id,
+                name: newName,
+                request: new domain.HTTPRequestDTO({
+                    method,
+                    url,
+                    proto,
+                    header,
+                    body
+                }),
+                response: null,
+                loading: false
+            };
+
+            set(state => ({
+                tabs: [...state.tabs, newTab],
+                activeTabId: id
+            }));
+
+            return id;
+        } catch (e) {
+            console.error("Failed to create repeater tab from transaction:", e);
+            return null;
+        }
+    },
+
     closeTab: async (id) => {
         const { tabs, activeTabId } = get();
         if (tabs.length === 1) return; // Don't close last tab? Or maybe allow and create new clean one? Burp allows closing all.

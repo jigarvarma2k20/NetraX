@@ -5,6 +5,7 @@ import { useProxyStore } from "../stores/useProxyStore";
 import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import clsx from 'clsx';
+import netraxLogo from '../assets/images/netrax.png';
 
 export default function Navbar({ theme, onToggleTheme }) {
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
@@ -106,9 +107,12 @@ export default function Navbar({ theme, onToggleTheme }) {
             <Modal {...modalConfig} onClose={closeModal} />
 
             <div className="flex items-center gap-6 px-4 h-12 border-b border-white/4 bg-background-dark">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                    <span className="font-bold text-primary text-sm tracking-wide">NetraX</span>
+                <div className="flex items-center">
+                    <img
+                        src={netraxLogo}
+                        alt="NetraX"
+                        className="h-32 w-32 object-contain"
+                    />
                 </div>
 
                 <nav className="flex items-center gap-7 text-xs font-medium text-text-secondary relative">
@@ -145,15 +149,14 @@ export default function Navbar({ theme, onToggleTheme }) {
             <div className="flex items-center px-4 h-12 gap-4 bg-panel-dark">
                 <div className="flex gap-1 overflow-x-auto no-scrollbar">
                     <InternalNavItem to="/dashboard" label="Dashboard" icon="layout-dashboard" />
-                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
+                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
                     <InternalNavItem to="/history" label="History" icon="history" />
-                    <InternalNavItem to="/intruder" label="Intruder" icon="zap" />
                     <InternalNavItem to="/intercept" label="Interceptor" icon="shield-alert" />
                     <InternalNavItem to="/repeater" label="Repeater" icon="repeat" />
                     <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
                     <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
                     <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
-                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
+                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
                 </div>
 
                 <div className="flex-1" />
@@ -189,6 +192,7 @@ import {
     Code2,
     SlidersHorizontal,
     GitCompareArrows,
+    Bot,
     Moon,
     Sun,
     Settings as SettingsIcon
