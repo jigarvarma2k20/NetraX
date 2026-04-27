@@ -16,6 +16,7 @@ import {
     SlidersHorizontal,
     GitCompareArrows,
     Bot,
+    Check,
     Moon,
     Sun,
     Settings as SettingsIcon
@@ -239,18 +240,18 @@ export default function Navbar({ theme, onToggleTheme }) {
                         {isViewMenuOpen && (
                             <div className="absolute top-full left-0 mt-1 w-60 glass border border-white/8 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden p-2">
                                 {[...MAIN_NAV_ITEMS, SETTINGS_ITEM].map((item) => (
-                                    <label
+                                    <button
                                         key={item.id}
-                                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 text-xs text-text-secondary hover:text-white cursor-pointer select-none"
+                                        type="button"
+                                        onClick={() => toggleSectionVisibility(item.id)}
+                                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 text-xs text-text-secondary hover:text-white cursor-pointer select-none text-left"
+                                        aria-pressed={!!visibleSections[item.id]}
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={!!visibleSections[item.id]}
-                                            onChange={() => toggleSectionVisibility(item.id)}
-                                            className="accent-primary"
-                                        />
                                         <span>{item.label}</span>
-                                    </label>
+                                        <span className="w-4 h-4 flex items-center justify-center text-primary">
+                                            {visibleSections[item.id] ? <Check size={14} /> : null}
+                                        </span>
+                                    </button>
                                 ))}
                             </div>
                         )}
