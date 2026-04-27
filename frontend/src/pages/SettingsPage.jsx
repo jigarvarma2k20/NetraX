@@ -330,8 +330,8 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Proxy Bindings Section */}
-                <div className="glass border border-white/[0.04] rounded-xl overflow-hidden shadow-2xl">
-                    <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c]">
+                <div className="glass border border-white/4 rounded-xl overflow-hidden shadow-2xl">
+                    <div className="px-6 py-4 border-b border-white/4 bg-[#0c101c]">
                         <h2 className="text-base font-semibold text-white flex items-center gap-2">
                             <Shield size={18} className="text-primary" />
                             Proxy Bindings
@@ -382,22 +382,22 @@ export default function SettingsPage() {
                                             <button
                                                 onClick={() => removeBinding(index)}
                                                 disabled={(settings.proxyBindings || []).length <= 1}
-                                                className="h-[42px] px-3 rounded-lg border border-accent-red/40 text-accent-red hover:bg-accent-red/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                className="h-10.5 px-3 rounded-lg border border-accent-red/40 text-accent-red hover:bg-accent-red/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                                 title="Remove binding"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
 
                                             {checkingBindings && !status ? (
-                                                <div className="h-[42px] flex items-center justify-center text-text-secondary" title={title}>
+                                                <div className="h-10.5 flex items-center justify-center text-text-secondary" title={title}>
                                                     <RefreshCw size={16} className="animate-spin" />
                                                 </div>
                                             ) : status?.available ? (
-                                                <div className="h-[42px] flex items-center justify-center text-accent-green" title={title}>
+                                                <div className="h-10.5 flex items-center justify-center text-accent-green" title={title}>
                                                     <Check size={16} />
                                                 </div>
                                             ) : (
-                                                <div className="h-[42px] flex items-center justify-center text-accent-red" title={title}>
+                                                <div className="h-10.5 flex items-center justify-center text-accent-red" title={title}>
                                                     <XCircle size={16} />
                                                 </div>
                                             )}
@@ -426,7 +426,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-4 border-t border-white/[0.04]">
+                        <div className="flex justify-end pt-4 border-t border-white/4">
                             {bindingValidation.hasErrors ? (
                                 <div className="mr-auto flex items-center text-xs text-accent-red/90">
                                     <AlertTriangle size={14} className="mr-1.5" />
@@ -463,8 +463,8 @@ export default function SettingsPage() {
                 </div>
 
                 {/* CA Certificate Section */}
-                <div className="glass border border-white/[0.04] rounded-xl overflow-hidden shadow-2xl">
-                    <div className="px-6 py-4 border-b border-white/[0.04] bg-[#0c101c]">
+                <div className="glass border border-white/4 rounded-xl overflow-hidden shadow-2xl">
+                    <div className="px-6 py-4 border-b border-white/4 bg-[#0c101c]">
                         <h2 className="text-base font-semibold text-white flex items-center gap-2">
                             <Shield size={18} className="text-accent-green" />
                             CA Certificate Management
@@ -501,7 +501,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-4 pt-4 border-t border-white/[0.04]">
+                        <div className="flex flex-wrap gap-4 pt-4 border-t border-white/4">
                             <button
                                 onClick={() => setShowModal(true)}
                                 className="flex items-center gap-2 px-4 py-2 bg-panel-dark border border-accent-red/30 text-accent-red hover:bg-accent-red/10 text-sm font-medium rounded-lg transition-all"

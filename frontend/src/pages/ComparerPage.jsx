@@ -7,6 +7,81 @@ import clsx from 'clsx';
 
 const COMPARER_STATE_KEY = 'netrax.comparer.state';
 
+function parseHeadersSafe(header) {
+    if (header && typeof header === 'object') {
+        return header;
+    }
+
+    try {
+        const parsed = JSON.parse(String(header || '{}'));
+        return typeof parsed === 'object' && parsed ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function getHeaderValue(headers, name) {
+    const target = name.toLowerCase();
+    for (const [k, v] of Object.entries(headers || {})) {
+        if (String(k).toLowerCase() !== target) continue;
+        if (Array.isArray(v)) return String(v[0] || '');
+        return String(v || '');
+    }
+    return '';
+}
+
+function isLikelyBinary(body, contentType) {
+    if (!body) return false;
+
+    const ct = (contentType || '').toLowerCase();
+    const looksTextType =
+        ct.includes('json') ||
+        ct.includes('xml') ||
+        ct.includes('html') ||
+        ct.includes('javascript') ||
+        ct.includes('x-www-form-urlencoded') ||
+        ct.startsWith('text/');
+
+    if (ct.includes('octet-stream') || ct.includes('protobuf') || ct.includes('grpc')) {
+        return true;
+    }
+
+    if (looksTextType) {
+        return false;
+    }
+
+    // Heuristic: if too many control/replacement chars are present, treat as binary.
+    const sample = String(body).slice(0, 4096);
+    let noisyCount = 0;
+    for (let i = 0; i < sample.length; i++) {
+        const code = sample.charCodeAt(i);
+        const ch = sample[i];
+        const isLineBreak = ch === '\n' || ch === '\r' || ch === '\t';
+        const isControl = code < 32 && !isLineBreak;
+        const isReplacement = ch === '�';
+        if (isControl || isReplacement) noisyCount++;
+    }
+
+    return noisyCount / Math.max(sample.length, 1) > 0.08;
+}
+
+function formatBodyForComparer(body, headers) {
+    const normalized = body || '';
+    const contentType = getHeaderValue(headers, 'content-type');
+    const contentLength = getHeaderValue(headers, 'content-length') || String(normalized.length);
+
+    if (isLikelyBinary(normalized, contentType)) {
+        return [
+            '[Binary payload omitted]',
+            `Content-Type: ${contentType || 'unknown'}`,
+            `Content-Length: ${contentLength}`,
+            'Tip: open this request in Inspector -> Hex view for byte-level inspection.'
+        ].join('\n');
+    }
+
+    return normalized;
+}
+
 // Simple line-by-line diff
 function computeDiff(textA, textB) {
     const linesA = (textA || '').split('\n');
@@ -41,15 +116,17 @@ function formatMessage(dto, type) {
         } else {
             statusLine = `${dto.proto || 'HTTP/1.1'} ${dto.status_code} ${dto.status}`;
         }
+        let headersObj = {};
         let headers = '';
         try {
-            const h = JSON.parse(dto.header || '{}');
-            headers = Object.entries(h).map(([k, v]) =>
+            headersObj = parseHeadersSafe(dto.header);
+            headers = Object.entries(headersObj).map(([k, v]) =>
                 `${k}: ${Array.isArray(v) ? v.join(', ') : v}`
             ).join('\n');
         } catch { headers = dto.header || ''; }
 
-        return `${statusLine}\n${headers}\n\n${dto.body || ''}`;
+        const body = formatBodyForComparer(dto.body, headersObj);
+        return `${statusLine}\n${headers}\n\n${body}`;
     } catch { return ''; }
 }
 
@@ -270,15 +347,15 @@ export default function ComparerPage() {
                                 <div
                                     key={i}
                                     className={clsx(
-                                        "flex border-b border-white/[0.02]",
-                                        line.type === 'added' && 'bg-accent-green/[0.06]',
-                                        line.type === 'removed' && 'bg-accent-red/[0.06]',
-                                        line.type === 'modified' && 'bg-accent-yellow/[0.04]',
+                                        "flex border-b border-white/2",
+                                        line.type === 'added' && 'bg-accent-green/6',
+                                        line.type === 'removed' && 'bg-accent-red/6',
+                                        line.type === 'modified' && 'bg-accent-yellow/4',
                                     )}
                                 >
                                     {/* Line A */}
-                                    <div className="flex-1 flex border-r border-white/[0.04] min-h-[24px]">
-                                        <div className="w-10 text-right px-2 py-0.5 text-text-secondary/30 select-none shrink-0 border-r border-white/[0.04]">
+                                    <div className="flex-1 flex border-r border-white/4 min-h-6">
+                                        <div className="w-10 text-right px-2 py-0.5 text-text-secondary/30 select-none shrink-0 border-r border-white/4">
                                             {line.lineA || ''}
                                         </div>
                                         <div className={clsx(
@@ -293,8 +370,8 @@ export default function ComparerPage() {
                                     </div>
 
                                     {/* Line B */}
-                                    <div className="flex-1 flex min-h-[24px]">
-                                        <div className="w-10 text-right px-2 py-0.5 text-text-secondary/30 select-none shrink-0 border-r border-white/[0.04]">
+                                    <div className="flex-1 flex min-h-6">
+                                        <div className="w-10 text-right px-2 py-0.5 text-text-secondary/30 select-none shrink-0 border-r border-white/4">
                                             {line.lineB || ''}
                                         </div>
                                         <div className={clsx(

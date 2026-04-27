@@ -69,11 +69,11 @@ export default function TrafficTable({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex w-full bg-[#0c101c] text-text-secondary text-xs font-bold border-b border-white/[0.04] shrink-0 uppercase tracking-wider sticky top-0 z-10">
-        <div className="w-20 p-3 border-r border-white/[0.04]">Id</div>
-        <div className="w-24 p-3 border-r border-white/[0.04]">Method</div>
-        <div className="w-24 p-3 border-r border-white/[0.04]">Status</div>
-        <div className="flex-1 p-3 border-r border-white/[0.04]">URL</div>
+      <div className="flex w-full bg-[#0c101c] text-text-secondary text-xs font-bold border-b border-white/4 shrink-0 uppercase tracking-wider sticky top-0 z-10">
+        <div className="w-20 p-3 border-r border-white/4">Id</div>
+        <div className="w-24 p-3 border-r border-white/4">Method</div>
+        <div className="w-24 p-3 border-r border-white/4">Status</div>
+        <div className="flex-1 p-3 border-r border-white/4">URL</div>
         <div className="w-24 p-3 text-right">Size</div>
       </div>
 
@@ -98,7 +98,7 @@ export default function TrafficTable({
                 e.preventDefault();
                 setContextMenu({ x: e.clientX, y: e.clientY, txn: t });
               }}
-              className={`flex items-center hover:bg-white/[0.03] cursor-pointer border-b border-white/[0.04] text-sm font-mono transition-colors ${isSelected ? "bg-primary/[0.06] border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}
+              className={`flex items-center hover:bg-white/3 cursor-pointer border-b border-white/4 text-sm font-mono transition-colors ${isSelected ? "bg-primary/6 border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}
             >
               <div className="w-20 p-2.5 shrink-0 text-text-secondary">
                 {t.index}

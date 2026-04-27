@@ -4,7 +4,7 @@ import { forwardRef, useState, useEffect, useRef } from "react";
 import { parseHeaders, formatHeaders, parseResponseLine, parseHeaderBlockToJson, splitMessage } from "../utils/http";
 
 export default forwardRef(function ResponsePanel({ dto, editable, onChange }, ref) {
-  if (!dto) return <div ref={ref} className="flex-1 min-w-[260px] overflow-hidden flex flex-col bg-background-dark border-l border-panel-border" />;
+  if (!dto) return <div ref={ref} className="flex-1 min-w-65 overflow-hidden flex flex-col bg-background-dark border-l border-panel-border" />;
 
   const [rawContent, setRawContent] = useState('');
   const isInternalChange = useRef(false);
@@ -51,9 +51,9 @@ export default forwardRef(function ResponsePanel({ dto, editable, onChange }, re
   };
 
   return (
-    <div ref={ref} className="flex-1 min-w-[260px] min-h-0 overflow-hidden flex flex-col bg-panel-dark">
+    <div ref={ref} className="flex-1 min-w-65 min-h-0 overflow-hidden flex flex-col bg-panel-dark">
       <Header title="Response" />
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <MessageEditor
           data={rawContent}
           onChange={editable ? handleEditorChange : undefined}

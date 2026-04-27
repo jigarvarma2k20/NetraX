@@ -62,7 +62,7 @@ func NewMCPServer(
 	getProxyCAInfo func() string,
 ) *MCPServer {
 	m := &MCPServer{
-		port:                    8080,        // Default MCP SSE port
+		port:                    8085,        // Default MCP SSE port
 		address:                 "127.0.0.1", // Default MCP Address
 		getRequests:             getRequests,
 		getRequest:              getRequest,

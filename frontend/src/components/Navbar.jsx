@@ -6,6 +6,20 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import clsx from 'clsx';
 import netraxLogo from '../assets/images/netrax.png';
+import {
+    LayoutDashboard,
+    History,
+    Zap,
+    ShieldAlert,
+    Repeat,
+    Code2,
+    SlidersHorizontal,
+    GitCompareArrows,
+    Bot,
+    Moon,
+    Sun,
+    Settings as SettingsIcon
+} from 'lucide-react';
 
 export default function Navbar({ theme, onToggleTheme }) {
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
@@ -183,20 +197,6 @@ export default function Navbar({ theme, onToggleTheme }) {
     );
 }
 
-import {
-    LayoutDashboard,
-    History,
-    Zap,
-    ShieldAlert,
-    Repeat,
-    Code2,
-    SlidersHorizontal,
-    GitCompareArrows,
-    Bot,
-    Moon,
-    Sun,
-    Settings as SettingsIcon
-} from 'lucide-react';
 
 const InternalNavItem = ({ to, icon, label, badge }) => {
     const location = useLocation();

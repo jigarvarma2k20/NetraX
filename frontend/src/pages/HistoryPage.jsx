@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistoryStore } from '../stores/useHistoryStore';
 import { useRepeaterStore } from '../stores/useRepeaterStore';
@@ -19,7 +19,10 @@ function parseHeaderObject(headerData) {
 
 function flattenHeaders(headerObj) {
   return Object.fromEntries(
-    Object.entries(headerObj || {}).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v ?? '')])
+    Object.entries(headerObj || {}).map(([k, v]) => [
+      k,
+      Array.isArray(v) ? v.join(', ') : String(v ?? '')
+    ])
   );
 }
 
@@ -67,9 +70,9 @@ function buildFetchFromRequest(req) {
 
   return [
     `fetch(${JSON.stringify(req?.url || '')}, ${JSON.stringify(options, null, 2)})`,
-    '  .then((response) => response.text())',
-    '  .then((result) => console.log(result))',
-    '  .catch((error) => console.error(error));'
+    '  .then((r) => r.text())',
+    '  .then((res) => console.log(res))',
+    '  .catch((e) => console.error(e));'
   ].join('\n');
 }
 
@@ -92,19 +95,22 @@ async function copyText(value) {
 
 export default function HistoryPage() {
   const navigate = useNavigate();
-  const transactionIds = useHistoryStore(state => state.transactionIds);
-  const transactionMap = useHistoryStore(state => state.transactionMap);
-  const loadMore = useHistoryStore(state => state.loadMore);
-  const hasMore = useHistoryStore(state => state.hasMore);
-  const startListening = useHistoryStore(state => state.startListening);
-  const reset = useHistoryStore(state => state.reset);
-  const addTabFromTransaction = useRepeaterStore(state => state.addTabFromTransaction);
+
+  const transactionIds = useHistoryStore(s => s.transactionIds);
+  const transactionMap = useHistoryStore(s => s.transactionMap);
+  const loadMore = useHistoryStore(s => s.loadMore);
+  const hasMore = useHistoryStore(s => s.hasMore);
+  const startListening = useHistoryStore(s => s.startListening);
+  const reset = useHistoryStore(s => s.reset);
+
+  const addTabFromTransaction = useRepeaterStore(s => s.addTabFromTransaction);
 
   useEffect(() => {
     startListening();
   }, [startListening]);
 
   const transactions = transactionIds.map(id => transactionMap[id]).filter(Boolean);
+
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("");
   const [bottomHeight, setBottomHeight] = useState(50);
@@ -112,12 +118,12 @@ export default function HistoryPage() {
 
   const filteredTransactions = transactions.filter(t => {
     if (!filter) return true;
-    const lower = filter.toLowerCase();
+    const f = filter.toLowerCase();
     return (
-      (t.request.url && t.request.url.toLowerCase().includes(lower)) ||
-      (t.request.host && t.request.host.toLowerCase().includes(lower)) ||
-      (t.request.method && t.request.method.toLowerCase().includes(lower)) ||
-      (t.response && t.response.status_code && t.response.status_code.toString().includes(lower))
+      t.request.url?.toLowerCase().includes(f) ||
+      t.request.host?.toLowerCase().includes(f) ||
+      t.request.method?.toLowerCase().includes(f) ||
+      t.response?.status_code?.toString().includes(f)
     );
   });
 
@@ -127,21 +133,20 @@ export default function HistoryPage() {
     const startHeight = bottomHeight;
     const containerHeight = containerRef.current.getBoundingClientRect().height;
 
-    const doDrag = (dragEvent) => {
-      const deltaY = startY - dragEvent.clientY;
-      const deltaPercent = (deltaY / containerHeight) * 100;
-      let newHeight = startHeight + deltaPercent;
-      newHeight = Math.max(15, Math.min(newHeight, 85)); // clamp between 15% and 85%
-      setBottomHeight(newHeight);
+    const doDrag = (ev) => {
+      const delta = startY - ev.clientY;
+      let next = startHeight + (delta / containerHeight) * 100;
+      next = Math.max(15, Math.min(next, 85));
+      setBottomHeight(next);
     };
 
-    const stopDrag = () => {
+    const stop = () => {
       document.removeEventListener('mousemove', doDrag);
-      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('mouseup', stop);
     };
 
     document.addEventListener('mousemove', doDrag);
-    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('mouseup', stop);
   };
 
   const onCopyUrl = async (txn) => {
@@ -200,27 +205,39 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden h-full">
-      <div className="flex items-center gap-3 px-4">
-        <div className="flex-1 min-w-0">
+
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-panel-border bg-panel-dark">
+
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <FilterBar value={filter} onChange={setFilter} />
+
+          <span className="text-xs text-text-secondary/60 whitespace-nowrap">
+            {filteredTransactions.length}/{transactions.length}
+          </span>
         </div>
+
         <button
-          type="button"
           onClick={() => {
             reset();
             setSelected(null);
           }}
-          className="shrink-0 rounded-md border border-white/8 bg-white/2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/6 hover:text-white"
-          title="Clear list"
+          disabled={!transactions.length}
+          className="h-9 px-3 rounded-md text-xs font-medium
+          border border-panel-border bg-background-dark
+          text-text-secondary
+          hover:bg-red-500/10 hover:text-red-400
+          disabled:opacity-40 disabled:cursor-not-allowed
+          transition"
         >
           Clear
         </button>
+
       </div>
 
       <div ref={containerRef} className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Top Half: Traffic Table */}
+
         <div
-          className="w-full overflow-hidden flex flex-col z-10"
+          className="w-full flex flex-col overflow-hidden"
           style={{ height: selected ? `${100 - bottomHeight}%` : '100%' }}
         >
           <TrafficTable
@@ -238,30 +255,29 @@ export default function HistoryPage() {
           />
         </div>
 
-        {/* Resizer Handle */}
         {selected && (
           <div
             onMouseDown={startResize}
-            className="w-full h-0.75 bg-white/4 hover:bg-primary cursor-row-resize z-30 transition-colors"
+            className="h-0.5 bg-white/5 hover:bg-primary cursor-row-resize"
           />
         )}
 
-        {/* Bottom Half: Inspector Sheet (Like Burp Suite) */}
         {selected && (
           <div
-            className="w-full flex flex-col bg-panel-dark relative z-20 shadow-[0_-8px_30px_rgb(0,0,0,0.5)] border-t border-panel-border"
+            className="relative bg-panel-dark border-t border-panel-border"
             style={{ height: `${bottomHeight}%` }}
           >
             <Inspector txn={selected} />
+
             <button
               onClick={() => setSelected(null)}
-              className="absolute top-2 right-4 p-1.25 bg-transparent hover:bg-white/10 text-text-secondary hover:text-white rounded transition-colors z-50"
-              title="Close Inspector"
+              className="absolute top-2 right-3 p-1 hover:bg-white/10 rounded"
             >
               <X size={16} />
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

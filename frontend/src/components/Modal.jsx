@@ -45,9 +45,9 @@ export default function Modal({
             />
 
             {/* Modal Content */}
-            <div className="relative glass border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-md transform transition-all scale-100 opacity-100 flex flex-col overflow-hidden">
+            <div className="relative glass border border-white/8 rounded-xl shadow-2xl w-full max-w-md transform transition-all scale-100 opacity-100 flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#0c101c]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/6 bg-[#0c101c]">
                     <div className="flex items-center gap-2 font-medium text-white">
                         <Icon size={18} className={typeColors[type]} />
                         <span>{title}</span>
@@ -66,7 +66,7 @@ export default function Modal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 px-4 py-3 bg-[#0c101c] border-t border-white/[0.06]">
+                <div className="flex items-center justify-end gap-3 px-4 py-3 bg-[#0c101c] border-t border-white/6">
                     <button
                         onClick={onClose}
                         className="px-3 py-1.5 rounded text-sm font-medium text-text-secondary hover:text-white hover:bg-white/5 transition-colors"

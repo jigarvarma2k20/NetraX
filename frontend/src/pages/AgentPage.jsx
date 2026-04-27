@@ -227,10 +227,10 @@ export default function AgentPage() {
     return (
         <div className="relative flex flex-col w-full h-full bg-background-dark overflow-hidden text-text-primary font-sans">
             {/* Minimal Header */}
-            <header className="flex-none h-14 bg-panel-dark/80 backdrop-blur-md border-b border-panel-border flex items-center justify-between px-4 z-10 w-full relative group shadow-sm transition-all duration-300">
+            <header className="flex-none h-10 bg-panel-dark/80 backdrop-blur-md border-b border-panel-border flex items-center justify-between px-4 z-10 w-full relative group shadow-sm transition-all duration-300">
                 <div className="flex items-center gap-3">
                     <div className="flex bg-surface-dark p-1.5 rounded-lg border border-panel-border shadow-sm transition-transform duration-300 group-hover:scale-105">
-                        <Sparkles size={16} className="text-text-primary" />
+                        <Sparkles size={14} className="text-text-primary" />
                     </div>
                     <div>
                         <h2 className="text-[15px] font-medium tracking-tight text-text-primary flex items-center gap-2">

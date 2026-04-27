@@ -100,8 +100,8 @@ export default function InterceptPage() {
               key={`${item.type}-${item.id}`}
               onClick={() => handleSelect(item)}
               className={clsx(
-                "p-3 border-b border-white/[0.04] cursor-pointer hover:bg-white/[0.03] transition-colors",
-                selectedId === item.id && selectedType === item.type && "bg-primary/[0.06] border-l-2 border-primary"
+                "p-3 border-b border-white/4 cursor-pointer hover:bg-white/3 transition-colors",
+                selectedId === item.id && selectedType === item.type && "bg-primary/6 border-l-2 border-primary"
               )}
             >
               <div className="flex items-start gap-2">
@@ -163,7 +163,7 @@ export default function InterceptPage() {
                 <span className="w-px h-4 bg-white/10 mx-2" />
                 <span className="font-mono text-primary">#{editData.id}</span>
                 <span className="w-px h-4 bg-white/10 mx-2" />
-                <span className="truncate max-w-[400px]">
+                <span className="truncate max-w-100">
                   {selectedType === 'request' ? editData.url : (editData.reqUrl || 'Unknown URL')}
                 </span>
               </div>

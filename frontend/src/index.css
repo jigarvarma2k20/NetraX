@@ -3,18 +3,17 @@
 @theme {
   --color-primary: #f59e0b;
   --color-primary-hover: #d97706;
-  --color-primary-glow: rgba(245, 158, 11, 0.18);
+  --color-primary-glow: rgba(245, 158, 11, 0.22);
   --color-background-dark: #050505;
-  --color-panel-dark: #0d0d0d;
-  --color-surface-dark: #141414;
-  --color-panel-border: #262626;
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-accent-green: #34D399;
-  --color-accent-red: #F87171;
+  --color-panel-dark: #0f0f0f;
+  --color-surface-dark: #1a1a1a; 
+  --color-panel-border: #303030;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #a1a1aa;
+  --color-accent-green: #34d399;
+  --color-accent-red: #f87171;
   --color-accent-yellow: #fbbf24;
   --color-accent-blue: #f59e0b;
-
   --font-sans: "Inter";
   --font-mono: "Fira Code";
 }
@@ -22,37 +21,45 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --overlay-soft: rgba(0, 0, 0, 0.2);
-  --overlay-medium: rgba(0, 0, 0, 0.3);
-  --overlay-modal: rgba(0, 0, 0, 0.7);
+
+  --overlay-soft: rgba(0, 0, 0, 0.25);
+  --overlay-medium: rgba(0, 0, 0, 0.35);
+  --overlay-modal: rgba(0, 0, 0, 0.75);
+
   --color-primary: #f59e0b;
   --color-primary-hover: #d97706;
-  --color-primary-glow: rgba(245, 158, 11, 0.18);
+  --color-primary-glow: rgba(245, 158, 11, 0.22);
+
   --color-background-dark: #050505;
-  --color-panel-dark: #0d0d0d;
-  --color-surface-dark: #141414;
-  --color-panel-border: #262626;
+  --color-panel-dark: #0f0f0f;
+  --color-surface-dark: #1a1a1a;
+  --color-panel-border: #303030;
   --color-accent-blue: #f59e0b;
 }
 
 [data-theme="light"] {
   color-scheme: light;
+
   --color-primary: #f59e0b;
   --color-primary-hover: #d97706;
   --color-primary-glow: rgba(245, 158, 11, 0.18);
+
   --color-background-dark: #fffdf7;
   --color-panel-dark: #ffffff;
-  --color-surface-dark: #fff7e6;
-  --color-panel-border: #f1e2c6;
+  --color-surface-dark: #fff4db;
+  --color-panel-border: #e6d3a3;
+
   --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
+  --color-text-secondary: #52525b; 
+
   --color-accent-green: #059669;
   --color-accent-red: #dc2626;
   --color-accent-yellow: #d97706;
   --color-accent-blue: #f59e0b;
-  --overlay-soft: rgba(245, 158, 11, 0.06);
-  --overlay-medium: rgba(245, 158, 11, 0.12);
-  --overlay-modal: rgba(15, 23, 42, 0.45);
+
+  --overlay-soft: rgba(245, 158, 11, 0.08);
+  --overlay-medium: rgba(245, 158, 11, 0.16);
+  --overlay-modal: rgba(15, 23, 42, 0.5);
 }
 
 @font-face {
@@ -191,4 +198,11 @@ input:-webkit-autofill:active {
 
 [data-theme="light"] .bg-\[\#0c101c\] {
   background-color: var(--color-panel-dark) !important;
+}
+
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

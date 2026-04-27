@@ -64,7 +64,7 @@ export default function RootLayout() {
     return (
         <div className="flex flex-col h-screen w-full bg-background-dark text-text-primary font-sans selection:bg-primary/20">
             <Navbar theme={theme} onToggleTheme={toggleTheme} />
-            <main className="flex-1 overflow-hidden relative pb-4 pt-4">
+            <main className="flex-1 overflow-hidden relative">
                 <div className="h-full w-full overflow-hidden">
                     <Outlet />
                 </div>

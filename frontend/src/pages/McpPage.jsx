@@ -6,7 +6,7 @@ import clsx from 'clsx';
 export default function McpPage() {
     const [isRunning, setIsRunning] = useState(false);
     const [address, setAddress] = useState('127.0.0.1');
-    const [port, setPort] = useState(8080);
+    const [port, setPort] = useState(8085);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [copied, setCopied] = useState(false);

@@ -4,7 +4,7 @@ import { forwardRef, useState, useEffect, useRef } from "react";
 import { parseHeaders, formatHeaders, parseRequestLine, parseHeaderBlockToJson, splitMessage } from "../utils/http";
 
 export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref) {
-  if (!dto) return <div ref={ref} className="flex-1 min-w-[260px] border-r border-panel-border bg-panel-dark" />;
+  if (!dto) return <div ref={ref} className="flex-1 min-w-65 border-r border-panel-border bg-panel-dark" />;
 
   const [rawContent, setRawContent] = useState('');
   const isInternalChange = useRef(false);
@@ -17,7 +17,7 @@ export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref
         isInternalChange.current = false;
         return;
       }
-      const statusLine = `${dto.method} ${dto.url} ${dto.proto}`;
+      const statusLine = `${dto.method} ${dto.url} ${dto.proto || "HTTP/1.1"}`;
       const headers = parseHeaders(dto.header);
       const headerBlock = formatHeaders(headers);
       setRawContent(`${statusLine}\n${headerBlock}\n\n${dto.body || ""}`);
@@ -44,7 +44,7 @@ export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref
           ...dto,
           method,
           url,
-          proto,
+          proto: proto || "HTTP/1.1",
           header: JSON.stringify(headers),
           body: body
         });
@@ -55,9 +55,9 @@ export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref
   };
 
   return (
-    <div ref={ref} className="flex-1 min-w-[260px] min-h-0 overflow-hidden border-r border-panel-border flex flex-col bg-panel-dark">
+    <div ref={ref} className="flex-1 min-w-65 min-h-0 overflow-hidden border-r border-panel-border flex flex-col bg-panel-dark">
       <Header title="Request" />
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <MessageEditor
           data={rawContent}
           onChange={editable ? handleEditorChange : undefined}

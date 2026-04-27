@@ -1,19 +1,62 @@
-import { Search } from 'lucide-react';
+import { useEffect, useRef } from "react";
+import { Search, X } from "lucide-react";
 
-export default function FilterBar({ value, onChange }) {
+export default function FilterBar({ value, onChange, className = "" }) {
+  const inputRef = useRef(null);
+
+  const handleChange = (e) => {
+    onChange?.(e.target.value);
+  };
+
+  const clear = () => {
+    onChange?.("");
+    inputRef.current?.focus();
+  };
+
+  // "/" focus + "Esc" clear
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "/" && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        clear();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
-    <div className="px-4 py-2 border-b border-panel-border bg-panel-dark flex items-center gap-3">
-      <div className="relative w-full max-w-xl">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search size={14} className="text-text-secondary/40" />
-        </div>
-        <input
-          value={value}
-          onChange={(e) => onChange && onChange(e.target.value)}
-          className="w-full bg-background-dark border border-panel-border rounded-lg text-xs text-text-primary placeholder:text-text-secondary/30 pl-9 pr-3 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none transition-all select-text"
-          placeholder="Filter requests (url, host, method, status)..."
-        />
-      </div>
+    <div className={`relative w-full ${className}`}>
+      <Search
+        size={16}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/60 pointer-events-none"
+      />
+
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={handleChange}
+        placeholder="Filter requests (url, host, method, status)..."
+        className="w-full h-9 pl-9 pr-8 rounded-md
+        bg-background-dark border border-panel-border
+        text-xs text-text-primary placeholder:text-text-secondary/40
+        focus:border-primary focus:ring-1 focus:ring-primary/30
+        outline-none transition"
+      />
+
+      {value && (
+        <button
+          onClick={clear}
+          className="absolute right-2 top-1/2 -translate-y-1/2
+          text-text-secondary/50 hover:text-white transition"
+        >
+          <X size={14} />
+        </button>
+      )}
     </div>
   );
 }
