@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ExportProject, ImportProject, ResetProject } from "../../wailsjs/go/main/App";
 import { useHistoryStore } from "../stores/useHistoryStore";
 import { useProxyStore } from "../stores/useProxyStore";
@@ -16,14 +16,60 @@ import {
     SlidersHorizontal,
     GitCompareArrows,
     Bot,
+    Check,
     Moon,
     Sun,
     Settings as SettingsIcon
 } from 'lucide-react';
 
+const VISIBLE_SECTIONS_STORAGE_KEY = "netrax-visible-nav-sections";
+
+const MAIN_NAV_ITEMS = [
+    { id: "dashboard", to: "/dashboard", label: "Dashboard", icon: "layout-dashboard" },
+    { id: "agent", to: "/agent", label: "Agent Chat", icon: "bot" },
+    { id: "history", to: "/history", label: "History", icon: "history" },
+    { id: "intercept", to: "/intercept", label: "Interceptor", icon: "shield-alert" },
+    { id: "repeater", to: "/repeater", label: "Repeater", icon: "repeat" },
+    { id: "decoder", to: "/decoder", label: "Decoder", icon: "code-2" },
+    { id: "comparer", to: "/comparer", label: "Comparer", icon: "git-compare-arrows" },
+    { id: "mcp", to: "/mcp", label: "MCP Server", icon: "bot" },
+    { id: "setup", to: "/setup", label: "Setup", icon: "sliders-horizontal" }
+];
+
+const SETTINGS_ITEM = { id: "settings", to: "/settings", label: "Settings" };
+
+function loadVisibleSections() {
+    const defaults = Object.fromEntries(
+        [...MAIN_NAV_ITEMS, SETTINGS_ITEM].map((item) => [item.id, true])
+    );
+
+    const raw = localStorage.getItem(VISIBLE_SECTIONS_STORAGE_KEY);
+    if (!raw) return defaults;
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return defaults;
+
+        const merged = { ...defaults };
+        for (const key of Object.keys(merged)) {
+            if (typeof parsed[key] === "boolean") {
+                merged[key] = parsed[key];
+            }
+        }
+        return merged;
+    } catch {
+        return defaults;
+    }
+}
+
 export default function Navbar({ theme, onToggleTheme }) {
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
     const fileMenuRef = useRef(null);
+    const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
+    const viewMenuRef = useRef(null);
+    const [visibleSections, setVisibleSections] = useState(loadVisibleSections);
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const [modalConfig, setModalConfig] = useState({
         isOpen: false,
@@ -38,10 +84,31 @@ export default function Navbar({ theme, onToggleTheme }) {
             if (fileMenuRef.current && !fileMenuRef.current.contains(event.target)) {
                 setIsFileMenuOpen(false);
             }
+            if (viewMenuRef.current && !viewMenuRef.current.contains(event.target)) {
+                setIsViewMenuOpen(false);
+            }
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem(VISIBLE_SECTIONS_STORAGE_KEY, JSON.stringify(visibleSections));
+    }, [visibleSections]);
+
+    const visibleMainNavItems = MAIN_NAV_ITEMS.filter((item) => visibleSections[item.id]);
+    const isSettingsVisible = visibleSections[SETTINGS_ITEM.id];
+
+    useEffect(() => {
+        const allItems = [...MAIN_NAV_ITEMS, SETTINGS_ITEM];
+        const activeItem = allItems.find((item) => location.pathname.startsWith(item.to));
+        if (!activeItem || visibleSections[activeItem.id]) return;
+
+        const fallback = visibleMainNavItems[0]?.to || (isSettingsVisible ? SETTINGS_ITEM.to : "/dashboard");
+        if (fallback !== location.pathname) {
+            navigate(fallback, { replace: true });
+        }
+    }, [location.pathname, visibleSections, visibleMainNavItems, isSettingsVisible, navigate]);
 
     const closeMenu = () => setIsFileMenuOpen(false);
 
@@ -51,6 +118,10 @@ export default function Navbar({ theme, onToggleTheme }) {
     };
 
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
+    const toggleSectionVisibility = (sectionId) => {
+        setVisibleSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
+    };
 
     const handleExport = async () => {
         closeMenu();
@@ -155,22 +226,44 @@ export default function Navbar({ theme, onToggleTheme }) {
                             </div>
                         )}
                     </div>
-                    <Link to="" className="hover:text-white no-underline transition-colors">View</Link>
-                    <Link to="" className="hover:text-white no-underline transition-colors">Preferences</Link>
+                    <div className="relative" ref={viewMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+                            className={clsx(
+                                "hover:text-white transition-colors py-2 px-1 rounded-sm",
+                                isViewMenuOpen ? "text-white bg-white/5" : ""
+                            )}
+                        >
+                            View
+                        </button>
+                        {isViewMenuOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-60 glass border border-white/8 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden p-2">
+                                {[...MAIN_NAV_ITEMS, SETTINGS_ITEM].map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => toggleSectionVisibility(item.id)}
+                                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 text-xs text-text-secondary hover:text-white cursor-pointer select-none text-left"
+                                        aria-pressed={!!visibleSections[item.id]}
+                                    >
+                                        <span>{item.label}</span>
+                                        <span className="w-4 h-4 flex items-center justify-center text-primary">
+                                            {visibleSections[item.id] ? <Check size={14} /> : null}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </nav>
             </div>
 
             <div className="flex items-center px-4 h-12 gap-4 bg-panel-dark">
                 <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                    <InternalNavItem to="/dashboard" label="Dashboard" icon="layout-dashboard" />
-                    <InternalNavItem to="/agent" label="Agent Chat" icon="bot" />
-                    <InternalNavItem to="/history" label="History" icon="history" />
-                    <InternalNavItem to="/intercept" label="Interceptor" icon="shield-alert" />
-                    <InternalNavItem to="/repeater" label="Repeater" icon="repeat" />
-                    <InternalNavItem to="/decoder" label="Decoder" icon="code-2" />
-                    <InternalNavItem to="/comparer" label="Comparer" icon="git-compare-arrows" />
-                    <InternalNavItem to="/mcp" label="MCP Server" icon="bot" />
-                    <InternalNavItem to="/setup" label="Setup" icon="sliders-horizontal" />
+                    {visibleMainNavItems.map((item) => (
+                        <InternalNavItem key={item.id} to={item.to} label={item.label} icon={item.icon} />
+                    ))}
                 </div>
 
                 <div className="flex-1" />
@@ -184,13 +277,15 @@ export default function Navbar({ theme, onToggleTheme }) {
                     >
                         {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
-                    <Link
-                        to="/settings"
-                        className="p-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-white/5 transition-colors block"
-                        title="Settings"
-                    >
-                        <SettingsIcon size={18} />
-                    </Link>
+                    {isSettingsVisible && (
+                        <Link
+                            to="/settings"
+                            className="p-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-white/5 transition-colors block"
+                            title="Settings"
+                        >
+                            <SettingsIcon size={18} />
+                        </Link>
+                    )}
                 </div>
             </div>
         </header>
