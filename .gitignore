@@ -1,5 +1,5 @@
 # Project Specifics
-build/bin/
+build/*
 bin/
 frontend/dist/
 frontend/node_modules/
@@ -48,3 +48,6 @@ Thumbs.db
 
 
 *.pdf
+
+#icon
+!build/appicon.png
