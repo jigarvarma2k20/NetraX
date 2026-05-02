@@ -99,7 +99,7 @@ func (m *MCPServer) initServer() {
 		mcp.WithDescription("Fetch the most recent HTTP transactions captured by NetraX"),
 		mcp.WithNumber("limit", mcp.Description("Number of requests to fetch (max 50)"), mcp.DefaultNumber(10)),
 	), m.handleGetTraffic)
- 
+
 	m.srv.AddTool(mcp.NewTool("search_traffic",
 		mcp.WithDescription("Search and filter HTTP traffic using advanced criteria"),
 		mcp.WithString("query", mcp.Description("Search string for URL, headers, or body")),
@@ -108,7 +108,7 @@ func (m *MCPServer) initServer() {
 		mcp.WithBoolean("hide_css", mcp.Description("Hide CSS files")),
 		mcp.WithBoolean("hide_js", mcp.Description("Hide JS files")),
 		mcp.WithString("sort_by", mcp.Description("Field to sort by (id, method, status, url)"), mcp.DefaultString("id")),
-		mcp.WithBoolean("sort_desc", mcp.Description("Sort in descending order"), mcp.DefaultBoolean(true)),
+		mcp.WithBoolean("sort_desc", mcp.Description("Sort in descending order")),
 		mcp.WithNumber("limit", mcp.Description("Number of results (max 50)"), mcp.DefaultNumber(20)),
 	), m.handleSearchTraffic)
 
@@ -193,8 +193,8 @@ func (m *MCPServer) initServer() {
 	), m.handleExecuteCmd)
 
 	m.srv.AddTool(mcp.NewTool("export_report_pdf",
-		mcp.WithDescription("Exports a text report or markdown content to a PDF file on disk."),
-		mcp.WithString("content", mcp.Description("The text or markdown content to export to PDF"), mcp.Required()),
+		mcp.WithDescription("Exports a text report or markdown content to a PDF file on disk. IMPORTANT: The PDF renderer is basic. DO NOT USE MARKDOWN TABLES as they will break. Use bold headers, bullet points, and code blocks for best results."),
+		mcp.WithString("content", mcp.Description("The text or markdown content to export to PDF. Avoid complex layouts like tables; use lists or headers instead."), mcp.Required()),
 		mcp.WithString("filename", mcp.Description("Optional filename (e.g. report.pdf). If empty, NetraXReport.pdf is used."), mcp.DefaultString("NetraXReport.pdf")),
 	), m.handleExportReportPdf)
 }

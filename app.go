@@ -27,6 +27,7 @@ type App struct {
 	ctx              context.Context
 	Proxy            *proxy.ProxyHandler
 	DB               *sqlite.DB
+	activeProjectPath string
 	MCPServer        *mcp.MCPServer
 	autonomousCancel context.CancelFunc
 	chatCancel       context.CancelFunc
@@ -38,14 +39,15 @@ func NewApp() *App {
 	if err != nil {
 		panic(err)
 	}
-	dbPath := filepath.Join(dir, "netrax.db")
-	db, err := sqlite.InitDB(dbPath)
+	projectPath := filepath.Join(dir, "netrax.nxp")
+	db, err := sqlite.InitDB(projectPath)
 	if err != nil {
 		panic(err)
 	}
 	appInstance := &App{
-		Proxy: proxy.NewProxyHandler(db),
-		DB:    db,
+		Proxy:             proxy.NewProxyHandler(db),
+		DB:                db,
+		activeProjectPath: projectPath,
 	}
 
 	appInstance.MCPServer = mcp.NewMCPServer(
@@ -252,7 +254,7 @@ func (a *App) ExportProject() error {
 	}
 
 	// Simple file copy
-	sourceFile, err := os.Open("./netrax.db")
+	sourceFile, err := os.Open(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -290,10 +292,7 @@ func (a *App) ImportProject() error {
 	}
 	defer sourceFile.Close()
 
-	// Remove existing (though we closed it, overwriting is safer with create)
-	os.Remove("./netrax.db")
-
-	destFile, err := os.Create("./netrax.db")
+	destFile, err := os.Create(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -305,7 +304,7 @@ func (a *App) ImportProject() error {
 	}
 
 	// Re-initialize DB
-	newDB, err := sqlite.InitDB("./netrax.db")
+	newDB, err := sqlite.InitDB(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -416,8 +415,8 @@ func (a *App) ExportCACertificate() error {
 // ResetProject clears the database
 func (a *App) ResetProject() {
 	a.DB.Close()
-	os.Remove("./netrax.db")
-	newDB, err := sqlite.InitDB("./netrax.db")
+	os.Remove(a.activeProjectPath)
+	newDB, err := sqlite.InitDB(a.activeProjectPath)
 	if err != nil {
 		log.Println("Error resetting DB:", err)
 		return
