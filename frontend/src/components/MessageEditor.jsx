@@ -12,28 +12,34 @@ export default function MessageEditor({
     const [viewMode, setViewMode] = useState('Raw');
     const [searchTerm, setSearchTerm] = useState('');
     const [useRegex, setUseRegex] = useState(false);
+    const [caseSensitive, setCaseSensitive] = useState(false);
     const [matchIndex, setMatchIndex] = useState(0);
 
     const textareaRef = useRef(null);
     const shouldJumpToMatchRef = useRef(false);
 
+    // Normalize HTTP CRLF (\r\n) to LF (\n) to prevent textarea selection index drift
+    const normalizedData = useMemo(() => data ? data.replace(/\r\n/g, '\n') : '', [data]);
+
     const matches = useMemo(() => {
-        if (!searchTerm || !data) return [];
+        if (!searchTerm || !normalizedData) return [];
         const results = [];
         try {
+            const flags = caseSensitive ? 'g' : 'gi';
             const pattern = useRegex
-                ? new RegExp(searchTerm, 'gi')
-                : new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                ? new RegExp(searchTerm, flags)
+                : new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
 
             let match;
-            while ((match = pattern.exec(data)) !== null) {
+            while ((match = pattern.exec(normalizedData)) !== null) {
                 results.push({ start: match.index, end: match.index + match[0].length });
+                if (match[0].length === 0) break;
             }
         } catch (e) {
             // Invalid regex
         }
         return results;
-    }, [data, searchTerm, useRegex]);
+    }, [normalizedData, searchTerm, useRegex, caseSensitive]);
 
     const nextMatch = () => {
         if (matches.length === 0) return;
@@ -62,8 +68,15 @@ export default function MessageEditor({
             const current = matches[matchIndex];
             if (current) {
                 const el = textareaRef.current;
+
+                const originalValue = el.value;
+                el.value = originalValue.substring(0, current.start);
+                const targetScroll = el.scrollHeight;
+                el.value = originalValue; // Restore immediately
+
                 el.focus();
                 el.setSelectionRange(current.start, current.end);
+                el.scrollTop = targetScroll - (el.clientHeight / 2);
             }
         }
         shouldJumpToMatchRef.current = false;
@@ -90,7 +103,6 @@ export default function MessageEditor({
     return (
         <div className="flex flex-col h-full bg-background-dark text-sm font-mono overflow-hidden">
 
-            {/* View Tabs */}
             <div className="flex items-center gap-1 bg-panel-dark border-b border-panel-border px-2 h-8 shrink-0">
                 {['Raw', 'Hex', 'Render'].map(mode => (
                     <button
@@ -108,7 +120,6 @@ export default function MessageEditor({
                 ))}
             </div>
 
-            {/* Main Content Area */}
             <div className="flex-1 relative min-h-0">
                 {viewMode === 'Raw' && (
                     <div className="relative w-full h-full bg-background-dark" onClick={() => textareaRef.current?.focus()}>
@@ -121,7 +132,7 @@ export default function MessageEditor({
                                 wordBreak: 'keep-all',
                                 overflowWrap: 'anywhere',
                             }}
-                            value={data}
+                            value={normalizedData}
                             onChange={e => onChange && !readOnly && onChange(e.target.value)}
                             readOnly={readOnly}
                             spellCheck={false}
@@ -132,7 +143,7 @@ export default function MessageEditor({
 
                 {viewMode === 'Hex' && (
                     <pre className="w-full h-full p-4 text-text-secondary text-xs font-mono overflow-auto select-text">
-                        {hexDump(data || '')}
+                        {hexDump(normalizedData || '')}
                     </pre>
                 )}
 
@@ -140,9 +151,9 @@ export default function MessageEditor({
                     <div className="w-full h-full bg-white p-4 overflow-auto select-text">
                         <iframe
                             srcDoc={(() => {
-                                if (!data) return "";
-                                const parts = data.split("\n\n");
-                                if (parts.length < 2) return data;
+                                if (!normalizedData) return "";
+                                const parts = normalizedData.split("\n\n");
+                                if (parts.length < 2) return normalizedData;
                                 return parts.slice(1).join("\n\n");
                             })()}
                             className="w-full h-full border-none"
@@ -153,7 +164,6 @@ export default function MessageEditor({
                 )}
             </div>
 
-            {/* Search Bar (Bottom) */}
             <div className="h-8 bg-panel-dark border-t border-panel-border flex items-center px-2 gap-2 shrink-0">
                 <Search size={12} className="text-text-secondary/50" />
                 <input
@@ -170,16 +180,27 @@ export default function MessageEditor({
                         }
                     }}
                 />
-                <div className="flex items-center gap-2 border-l border-white/10 pl-2">
-                    <label className="flex items-center gap-1 text-[10px] text-text-secondary/70 cursor-pointer select-none hover:text-text-secondary">
-                        <input
-                            type="checkbox"
-                            checked={useRegex}
-                            onChange={e => setUseRegex(e.target.checked)}
-                            className="accent-primary"
-                        />
-                        Regex
-                    </label>
+                <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                    <button
+                        onClick={() => setCaseSensitive(!caseSensitive)}
+                        className={clsx(
+                            "px-1.5 py-0.5 rounded text-[11px] font-mono transition-colors border",
+                            caseSensitive ? "bg-primary/20 border-primary text-primary" : "border-transparent text-text-secondary hover:bg-white/10"
+                        )}
+                        title="Match Case"
+                    >
+                        Aa
+                    </button>
+                    <button
+                        onClick={() => setUseRegex(!useRegex)}
+                        className={clsx(
+                            "px-1.5 py-0.5 rounded text-[11px] font-mono transition-colors border",
+                            useRegex ? "bg-primary/20 border-primary text-primary" : "border-transparent text-text-secondary hover:bg-white/10"
+                        )}
+                        title="Use Regular Expression"
+                    >
+                        .*
+                    </button>
                 </div>
 
                 {searchTerm && (

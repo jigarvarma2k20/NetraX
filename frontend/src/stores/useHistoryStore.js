@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
-import { GetRequestByID, GetRequests } from '../../wailsjs/go/main/App';
+import { GetRequestByID, GetRequests, GetFilteredRequests, GetFilteredRequestsCount } from '../../wailsjs/go/main/App';
 
 const MAX_TRANSACTIONS = 1000;
 
@@ -11,25 +11,85 @@ export const useHistoryStore = create((set, get) => ({
     hasMore: true,
     offset: 0,
     LIMIT: 50,
+    searchQuery: '',
+    statusCodes: [],
+    hideMedia: false,
+    hideCSS: false,
+    hideJS: false,
+    totalCount: 0,
+    sortBy: 'id',
+    sortDesc: true,
+
+    setFilters: (filters) => {
+        set({
+            ...filters,
+            transactionIds: [],
+            transactionMap: {},
+            offset: 0,
+            hasMore: true
+        });
+        get().fetchTotalCount();
+        get().loadMore();
+    },
+
+    fetchTotalCount: async () => {
+        const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
+        try {
+            const count = await GetFilteredRequestsCount({
+                searchQuery,
+                statusCodes,
+                hideMedia,
+                hideCSS,
+                hideJS,
+                sortBy,
+                sortDesc
+            });
+            set({ totalCount: count });
+        } catch (error) {
+            // silently handle
+        }
+    },
+
+    setSearchQuery: (query) => {
+        get().setFilters({ searchQuery: query });
+    },
 
     getTransactions: () => {
         const state = get();
         return state.transactionIds.map(id => state.transactionMap[id]).filter(Boolean);
     },
 
-    reset: () => set({
-        transactionIds: [],
-        transactionMap: {},
-        offset: 0,
-        hasMore: true
-    }),
+    reset: () => {
+        set({
+            transactionIds: [],
+            transactionMap: {},
+            offset: 0,
+            hasMore: true,
+            totalCount: 0
+        });
+        get().fetchTotalCount();
+    },
 
     loadMore: async () => {
-        const { offset, LIMIT, hasMore } = get();
+        const { offset, LIMIT, hasMore, searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
         if (!hasMore) return;
 
         try {
-            const newTransactions = await GetRequests(LIMIT, offset);
+            const hasFilters = searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc;
+            let newTransactions = [];
+            if (hasFilters) {
+                newTransactions = await GetFilteredRequests({
+                    searchQuery,
+                    statusCodes,
+                    hideMedia,
+                    hideCSS,
+                    hideJS,
+                    sortBy,
+                    sortDesc
+                }, LIMIT, offset);
+            } else {
+                newTransactions = await GetRequests(LIMIT, offset);
+            }
             if (!newTransactions || newTransactions.length === 0) {
                 set({ hasMore: false });
                 return;
@@ -97,19 +157,25 @@ export const useHistoryStore = create((set, get) => ({
         if (get().isListening) return;
         set({ isListening: true });
 
+        get().fetchTotalCount();
         get().loadMore();
 
         EventsOn("newRequestRecived", (id) => {
+            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
+            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc) return;
             GetRequestByID(id, true).then((data) => {
                 get().addTransaction({
                     request: data.request,
                     response: null,
                     index: data.index
                 });
+                set((state) => ({ totalCount: state.totalCount + 1 }));
             }).catch(() => { });
         });
 
         EventsOn("requestWithResponse", (id) => {
+            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
+            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc) return;
             GetRequestByID(id, true).then((data) => {
                 get().updateTransaction(id, data.response);
             }).catch(() => { });

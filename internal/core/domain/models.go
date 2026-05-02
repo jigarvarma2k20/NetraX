@@ -16,6 +16,16 @@ import (
 	"golang.org/x/text/transform"
 )
 
+type FilterOptions struct {
+	SearchQuery string   `json:"searchQuery"`
+	StatusCodes []string `json:"statusCodes"` // "2xx", "3xx", "4xx", "5xx"
+	HideMedia   bool     `json:"hideMedia"`
+	HideCSS     bool     `json:"hideCSS"`
+	HideJS      bool     `json:"hideJS"`
+	SortBy      string   `json:"sortBy"`
+	SortDesc    bool     `json:"sortDesc"`
+}
+
 type HTTPTransactionDTO struct {
 	Request  HTTPRequestDTO  `json:"request"`
 	Response HTTPResponseDTO `json:"response,omitempty"`

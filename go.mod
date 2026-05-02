@@ -7,10 +7,8 @@ require (
 	github.com/mandolyte/mdtopdf v1.5.3
 	github.com/mark3labs/mcp-go v0.49.0
 	github.com/mattn/go-sqlite3 v1.14.42
-	github.com/wailsapp/wails/v2 v2.12.0
+	github.com/wailsapp/wails/v2 v2.11.0
 )
-
-require git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 
 require (
 	github.com/andybalholm/brotli v1.2.1

@@ -7,28 +7,32 @@ export default forwardRef(function ResponsePanel({ dto, editable, onChange }, re
   if (!dto) return <div ref={ref} className="flex-1 min-w-65 overflow-hidden flex flex-col bg-background-dark border-l border-panel-border" />;
 
   const [rawContent, setRawContent] = useState('');
-  const isInternalChange = useRef(false);
+  const lastPassedDtoStr = useRef('');
 
   useEffect(() => {
-    if (dto) {
-      if (isInternalChange.current) {
-        isInternalChange.current = false;
-        return;
-      }
-      const statusLine = `${dto.proto} ${dto.status_code} ${dto.status}`;
-      const headers = parseHeaders(dto.header);
-      const headerBlock = formatHeaders(headers);
-      setRawContent(`${statusLine}\n${headerBlock}\n\n${dto.body || ""}`);
-    } else {
+    if (!dto) {
       setRawContent('');
+      return;
     }
+    
+    // Ignore updates that are just echoes of our own typing
+    const currentDtoStr = JSON.stringify(dto);
+    if (lastPassedDtoStr.current === currentDtoStr) {
+      return;
+    }
+
+    const statusLine = `${dto.proto || "HTTP/1.1"} ${dto.status_code} ${dto.status || "OK"}`;
+    const headers = parseHeaders(dto.header);
+    const headerBlock = formatHeaders(headers);
+    setRawContent(`${statusLine}\n${headerBlock}\n\n${dto.body || ""}`);
+    
+    lastPassedDtoStr.current = currentDtoStr;
   }, [dto]);
 
   const handleEditorChange = (newVal) => {
     setRawContent(newVal);
 
     if (onChange && editable) {
-      isInternalChange.current = true;
       try {
         const { headerBlock, body } = splitMessage(newVal);
         const lines = headerBlock.split("\n");
@@ -38,14 +42,17 @@ export default forwardRef(function ResponsePanel({ dto, editable, onChange }, re
         const { proto, statusCode, statusText } = parseResponseLine(firstLine);
         const headers = parseHeaderBlockToJson(headerLines);
 
-        onChange({
+        const newDto = {
           ...dto,
           proto: proto || dto.proto,
           status_code: statusCode || dto.status_code,
           status: statusText || dto.status,
           header: JSON.stringify(headers),
           body: body
-        });
+        };
+
+        lastPassedDtoStr.current = JSON.stringify(newDto);
+        onChange(newDto);
       } catch (e) { }
     }
   };

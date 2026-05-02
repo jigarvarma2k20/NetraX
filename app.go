@@ -27,6 +27,7 @@ type App struct {
 	ctx              context.Context
 	Proxy            *proxy.ProxyHandler
 	DB               *sqlite.DB
+	activeProjectPath string
 	MCPServer        *mcp.MCPServer
 	autonomousCancel context.CancelFunc
 	chatCancel       context.CancelFunc
@@ -38,19 +39,23 @@ func NewApp() *App {
 	if err != nil {
 		panic(err)
 	}
-	dbPath := filepath.Join(dir, "netrax.db")
-	db, err := sqlite.InitDB(dbPath)
+	projectPath := filepath.Join(dir, "netrax.nxp")
+	db, err := sqlite.InitDB(projectPath)
 	if err != nil {
 		panic(err)
 	}
 	appInstance := &App{
-		Proxy: proxy.NewProxyHandler(db),
-		DB:    db,
+		Proxy:             proxy.NewProxyHandler(db),
+		DB:                db,
+		activeProjectPath: projectPath,
 	}
 
 	appInstance.MCPServer = mcp.NewMCPServer(
 		func(limit, offset int) ([]domain.HTTPTransactionDTO, error) {
 			return appInstance.GetRequests(limit, offset)
+		},
+		func(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+			return appInstance.GetFilteredRequests(opts, limit, offset)
 		},
 		func(id int64) (*domain.HTTPTransactionDTO, error) {
 			return appInstance.GetRequestByID(id, false)
@@ -138,6 +143,18 @@ func (a *App) GetRequests(limit, offset int) ([]domain.HTTPTransactionDTO, error
 	reqs, err := a.DB.GetRequests(limit, offset)
 	log.Printf("App.GetRequests called: limit=%d, offset=%d. Returning %d requests, err: %v", limit, offset, len(reqs), err)
 	return reqs, err
+}
+
+func (a *App) GetFilteredRequests(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+	reqs, err := a.DB.GetFilteredRequests(opts, limit, offset)
+	log.Printf("App.GetFilteredRequests called: query=%s, limit=%d, offset=%d. Returning %d requests, err: %v", opts.SearchQuery, limit, offset, len(reqs), err)
+	return reqs, err
+}
+
+func (a *App) GetFilteredRequestsCount(opts domain.FilterOptions) (int, error) {
+	count, err := a.DB.GetFilteredRequestsCount(opts)
+	log.Printf("App.GetFilteredRequestsCount called: returning %d, err: %v", count, err)
+	return count, err
 }
 
 func (a *App) StartMCPServer(address string, port int) error {
@@ -237,7 +254,7 @@ func (a *App) ExportProject() error {
 	}
 
 	// Simple file copy
-	sourceFile, err := os.Open("./netrax.db")
+	sourceFile, err := os.Open(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -275,10 +292,7 @@ func (a *App) ImportProject() error {
 	}
 	defer sourceFile.Close()
 
-	// Remove existing (though we closed it, overwriting is safer with create)
-	os.Remove("./netrax.db")
-
-	destFile, err := os.Create("./netrax.db")
+	destFile, err := os.Create(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -290,7 +304,7 @@ func (a *App) ImportProject() error {
 	}
 
 	// Re-initialize DB
-	newDB, err := sqlite.InitDB("./netrax.db")
+	newDB, err := sqlite.InitDB(a.activeProjectPath)
 	if err != nil {
 		return err
 	}
@@ -301,12 +315,12 @@ func (a *App) ImportProject() error {
 
 // Repeater Wrappers
 
-func (a *App) SaveRepeater(name, method, url, proto, header, body string) (int64, error) {
-	return a.DB.SaveRepeater(name, method, url, proto, header, body)
+func (a *App) SaveRepeater(name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) (int64, error) {
+	return a.DB.SaveRepeater(name, req, res)
 }
 
-func (a *App) UpdateRepeater(id int64, name, method, url, proto, header, body string) error {
-	return a.DB.UpdateRepeater(id, name, method, url, proto, header, body)
+func (a *App) UpdateRepeater(id int64, name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) error {
+	return a.DB.UpdateRepeater(id, name, req, res)
 }
 
 func (a *App) DeleteRepeater(id int64) error {
@@ -401,8 +415,8 @@ func (a *App) ExportCACertificate() error {
 // ResetProject clears the database
 func (a *App) ResetProject() {
 	a.DB.Close()
-	os.Remove("./netrax.db")
-	newDB, err := sqlite.InitDB("./netrax.db")
+	os.Remove(a.activeProjectPath)
+	newDB, err := sqlite.InitDB(a.activeProjectPath)
 	if err != nil {
 		log.Println("Error resetting DB:", err)
 		return

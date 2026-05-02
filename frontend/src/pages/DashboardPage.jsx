@@ -73,8 +73,8 @@ export default function DashboardPage() {
                     })}
                 </section>
 
-                <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_0.9fr]">
-                    <div className="rounded-2xl border border-white/6 bg-panel-dark/85 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
+                <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_0.9fr] min-h-0">
+                    <div className="rounded-2xl border border-white/6 bg-panel-dark/85 shadow-[0_12px_40px_rgba(0,0,0,0.2)] min-w-0 flex flex-col">
                         <div className="flex items-center justify-between border-b border-white/6 px-5 py-4">
                             <div>
                                 <h2 className="text-base font-semibold text-white">Recent requests</h2>
@@ -104,8 +104,8 @@ export default function DashboardPage() {
 
                                 return (
                                     <div key={txn.index} className="flex items-center gap-4 px-5 py-4 text-sm">
-                                        <div className="w-20 shrink-0">
-                                            <span className="rounded-full bg-white/6 px-2.5 py-1 text-xs font-medium text-white/90">
+                                        <div className="w-16 sm:w-20 shrink-0">
+                                            <span className="inline-block max-w-full truncate rounded-full bg-white/6 px-2.5 py-1 text-xs font-medium text-white/90 text-center">
                                                 {txn.request.method || 'GET'}
                                             </span>
                                         </div>
@@ -133,7 +133,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-6 min-w-0">
                         <div className="rounded-2xl border border-white/6 bg-panel-dark/85 p-5 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
                             <div className="flex items-center justify-between gap-4">
                                 <div>

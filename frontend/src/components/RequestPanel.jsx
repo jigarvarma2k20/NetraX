@@ -7,30 +7,33 @@ export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref
   if (!dto) return <div ref={ref} className="flex-1 min-w-65 border-r border-panel-border bg-panel-dark" />;
 
   const [rawContent, setRawContent] = useState('');
-  const isInternalChange = useRef(false);
+  const lastPassedDtoStr = useRef('');
 
   // Hydrate raw content from DTO
   useEffect(() => {
-    if (dto) {
-      // If this DTO update was triggered by our own typing, don't re-hydrate and lose cursor position
-      if (isInternalChange.current) {
-        isInternalChange.current = false;
-        return;
-      }
-      const statusLine = `${dto.method} ${dto.url} ${dto.proto || "HTTP/1.1"}`;
-      const headers = parseHeaders(dto.header);
-      const headerBlock = formatHeaders(headers);
-      setRawContent(`${statusLine}\n${headerBlock}\n\n${dto.body || ""}`);
-    } else {
+    if (!dto) {
       setRawContent('');
+      return;
     }
+    
+    // Ignore updates that are just echoes of our own typing
+    const currentDtoStr = JSON.stringify(dto);
+    if (lastPassedDtoStr.current === currentDtoStr) {
+      return;
+    }
+
+    const statusLine = `${dto.method} ${dto.url} ${dto.proto || "HTTP/1.1"}`;
+    const headers = parseHeaders(dto.header);
+    const headerBlock = formatHeaders(headers);
+    setRawContent(`${statusLine}\n${headerBlock}\n\n${dto.body || ""}`);
+    
+    lastPassedDtoStr.current = currentDtoStr;
   }, [dto]);
 
   const handleEditorChange = (newVal) => {
     setRawContent(newVal);
 
     if (onChange && editable) {
-      isInternalChange.current = true;
       try {
         const { headerBlock, body } = splitMessage(newVal);
         const lines = headerBlock.split("\n");
@@ -40,14 +43,17 @@ export default forwardRef(function RequestPanel({ dto, editable, onChange }, ref
         const { method, url, proto } = parseRequestLine(firstLine);
         const headers = parseHeaderBlockToJson(headerLines);
 
-        onChange({
+        const newDto = {
           ...dto,
           method,
           url,
           proto: proto || "HTTP/1.1",
           header: JSON.stringify(headers),
           body: body
-        });
+        };
+
+        lastPassedDtoStr.current = JSON.stringify(newDto);
+        onChange(newDto);
       } catch (e) {
         // parsing error, ignore until valid
       }
