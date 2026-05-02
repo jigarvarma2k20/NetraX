@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SaveRepeater, GetRepeaters, UpdateRepeater, DeleteRepeater } from '../../wailsjs/go/main/App';
+import { SaveRepeater, GetRepeaters, UpdateRepeater, DeleteRepeater, GetRequestByID } from '../../wailsjs/go/main/App';
 import { domain } from '../../wailsjs/go/models';
 
 export const useRepeaterStore = create((set, get) => ({
@@ -12,19 +12,11 @@ export const useRepeaterStore = create((set, get) => ({
         try {
             const stored = await GetRepeaters();
             if (stored && stored.length > 0) {
-                // Convert stored (RepeaterRequest) to UI Tab format
-                // Backend: ID, Name, Method, URL, Header (JSON string), Body
                 const tabs = stored.map(s => ({
                     id: s.id,
                     name: s.name,
-                    // Reconstruct HTTPRequestDTO
-                    request: new domain.HTTPRequestDTO({
-                        method: s.method,
-                        url: s.url,
-                        header: s.header,
-                        body: s.body
-                    }),
-                    response: null,
+                    request: s.request ? new domain.HTTPRequestDTO(s.request) : new domain.HTTPRequestDTO(),
+                    response: s.response ? new domain.HTTPResponseDTO(s.response) : null,
                     loading: false
                 }));
                 set({ tabs, activeTabId: tabs[0].id, loading: false });
@@ -45,29 +37,24 @@ export const useRepeaterStore = create((set, get) => ({
 
     createTab: async () => {
         const newName = `Tab ${get().tabs.length + 1}`;
-        const method = "GET";
-        const url = "https://example.com";
-        const header = JSON.stringify({
-            "User-Agent": "NetraX/1.0",
-            "Accept": "*/*"
-        });
-        const body = "";
-
         try {
             // Save to DB first to get ID
-            const proto = "HTTP/1.1";
-            const id = await SaveRepeater(newName, method, url, proto, header, body);
+            const req = new domain.HTTPRequestDTO({
+                method: "GET",
+                url: "https://example.com",
+                proto: "HTTP/1.1",
+                header: JSON.stringify({
+                    "User-Agent": "NetraX/1.0",
+                    "Accept": "*/*"
+                }),
+                body: ""
+            });
+            const id = await SaveRepeater(newName, req, null);
 
             const newTab = {
                 id: id,
                 name: newName,
-                request: new domain.HTTPRequestDTO({
-                    method,
-                    url,
-                    proto: "HTTP/1.1",
-                    header,
-                    body
-                }),
+                request: req,
                 response: null,
                 loading: false
             };
@@ -82,10 +69,20 @@ export const useRepeaterStore = create((set, get) => ({
     },
 
     addTabFromTransaction: async (transaction) => {
-        if (!transaction?.request) return null;
+        let fullTransaction = transaction;
+        try {
+            if (transaction.index) {
+                const fetched = await GetRequestByID(transaction.index, false);
+                if (fetched) fullTransaction = fetched;
+            }
+        } catch (e) {
+            console.error("Failed to fetch full transaction details:", e);
+        }
 
-        const req = transaction.request;
-        const newName = `History #${transaction.index}`;
+        if (!fullTransaction?.request) return null;
+
+        const req = fullTransaction.request;
+        const newName = `History #${fullTransaction.index}`;
         const method = req.method || "GET";
         const url = req.url || "https://example.com";
         const proto = req.proto || "HTTP/1.1";
@@ -94,19 +91,34 @@ export const useRepeaterStore = create((set, get) => ({
             : JSON.stringify(req.header || {});
         const body = req.body || "";
 
+        const payloadReq = new domain.HTTPRequestDTO({
+            method,
+            url,
+            proto,
+            header,
+            body
+        });
+        
+        let payloadRes = null;
+        if (fullTransaction.response) {
+            const res = fullTransaction.response;
+            const resHeader = typeof res.header === 'string'
+                ? res.header
+                : JSON.stringify(res.header || {});
+            
+            payloadRes = new domain.HTTPResponseDTO({
+                ...res,
+                header: resHeader
+            });
+        }
+
         try {
-            const id = await SaveRepeater(newName, method, url, proto, header, body);
+            const id = await SaveRepeater(newName, payloadReq, payloadRes);
             const newTab = {
                 id,
                 name: newName,
-                request: new domain.HTTPRequestDTO({
-                    method,
-                    url,
-                    proto,
-                    header,
-                    body
-                }),
-                response: null,
+                request: payloadReq,
+                response: payloadRes,
                 loading: false
             };
 
@@ -152,16 +164,19 @@ export const useRepeaterStore = create((set, get) => ({
     persistTab: async (id) => {
         const tab = get().tabs.find(t => t.id === id);
         if (!tab) return;
+        
         try {
-            await UpdateRepeater(
-                tab.id,
-                tab.name,
-                tab.request.method,
-                tab.request.url,
-                tab.request.proto || "HTTP/1.1",
-                typeof tab.request.header === 'string' ? tab.request.header : JSON.stringify(tab.request.header),
-                tab.request.body
-            );
+            const reqDTO = new domain.HTTPRequestDTO({
+                method: tab.request.method,
+                url: tab.request.url,
+                proto: tab.request.proto || "HTTP/1.1",
+                header: typeof tab.request.header === 'string' ? tab.request.header : JSON.stringify(tab.request.header),
+                body: tab.request.body || ""
+            });
+
+            const resDTO = tab.response ? new domain.HTTPResponseDTO(tab.response) : null;
+
+            await UpdateRepeater(tab.id, tab.name, reqDTO, resDTO);
         } catch (e) {
             console.error("Failed to persist tab:", e);
         }

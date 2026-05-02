@@ -140,6 +140,18 @@ func (a *App) GetRequests(limit, offset int) ([]domain.HTTPTransactionDTO, error
 	return reqs, err
 }
 
+func (a *App) GetFilteredRequests(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+	reqs, err := a.DB.GetFilteredRequests(opts, limit, offset)
+	log.Printf("App.GetFilteredRequests called: query=%s, limit=%d, offset=%d. Returning %d requests, err: %v", opts.SearchQuery, limit, offset, len(reqs), err)
+	return reqs, err
+}
+
+func (a *App) GetFilteredRequestsCount(opts domain.FilterOptions) (int, error) {
+	count, err := a.DB.GetFilteredRequestsCount(opts)
+	log.Printf("App.GetFilteredRequestsCount called: returning %d, err: %v", count, err)
+	return count, err
+}
+
 func (a *App) StartMCPServer(address string, port int) error {
 	return a.MCPServer.Start(address, port)
 }
@@ -301,12 +313,12 @@ func (a *App) ImportProject() error {
 
 // Repeater Wrappers
 
-func (a *App) SaveRepeater(name, method, url, proto, header, body string) (int64, error) {
-	return a.DB.SaveRepeater(name, method, url, proto, header, body)
+func (a *App) SaveRepeater(name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) (int64, error) {
+	return a.DB.SaveRepeater(name, req, res)
 }
 
-func (a *App) UpdateRepeater(id int64, name, method, url, proto, header, body string) error {
-	return a.DB.UpdateRepeater(id, name, method, url, proto, header, body)
+func (a *App) UpdateRepeater(id int64, name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) error {
+	return a.DB.UpdateRepeater(id, name, req, res)
 }
 
 func (a *App) DeleteRepeater(id int64) error {

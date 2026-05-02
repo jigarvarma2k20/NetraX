@@ -38,6 +38,10 @@ export function GetAgentHistory():Promise<Array<main.ChatMessage>>;
 
 export function GetCAInfo():Promise<main.CAInfo>;
 
+export function GetFilteredRequests(arg1:domain.FilterOptions,arg2:number,arg3:number):Promise<Array<domain.HTTPTransactionDTO>>;
+
+export function GetFilteredRequestsCount(arg1:domain.FilterOptions):Promise<number>;
+
 export function GetInterceptedRequests():Promise<Array<domain.HTTPTransactionDTO>>;
 
 export function GetInterceptedResponses():Promise<Array<domain.HTTPTransactionDTO>>;
@@ -60,7 +64,7 @@ export function RegenerateCA(arg1:string):Promise<void>;
 
 export function ResetProject():Promise<void>;
 
-export function SaveRepeater(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<number>;
+export function SaveRepeater(arg1:string,arg2:domain.HTTPRequestDTO,arg3:domain.HTTPResponseDTO):Promise<number>;
 
 export function SaveSettings(arg1:config.Settings):Promise<void>;
 
@@ -74,4 +78,4 @@ export function StopAutonomousAgent():Promise<void>;
 
 export function StopMCPServer():Promise<void>;
 
-export function UpdateRepeater(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string):Promise<void>;
+export function UpdateRepeater(arg1:number,arg2:string,arg3:domain.HTTPRequestDTO,arg4:domain.HTTPResponseDTO):Promise<void>;

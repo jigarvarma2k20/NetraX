@@ -102,6 +102,8 @@ export default function HistoryPage() {
   const hasMore = useHistoryStore(s => s.hasMore);
   const startListening = useHistoryStore(s => s.startListening);
   const reset = useHistoryStore(s => s.reset);
+  const setSearchQueryStore = useHistoryStore(s => s.setSearchQuery);
+  const totalCount = useHistoryStore(s => s.totalCount);
 
   const addTabFromTransaction = useRepeaterStore(s => s.addTabFromTransaction);
 
@@ -113,19 +115,15 @@ export default function HistoryPage() {
 
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("");
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQueryStore(filter);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [filter, setSearchQueryStore]);
+
   const [bottomHeight, setBottomHeight] = useState(50);
   const containerRef = useRef(null);
-
-  const filteredTransactions = transactions.filter(t => {
-    if (!filter) return true;
-    const f = filter.toLowerCase();
-    return (
-      t.request.url?.toLowerCase().includes(f) ||
-      t.request.host?.toLowerCase().includes(f) ||
-      t.request.method?.toLowerCase().includes(f) ||
-      t.response?.status_code?.toString().includes(f)
-    );
-  });
 
   const startResize = (e) => {
     e.preventDefault();
@@ -212,7 +210,7 @@ export default function HistoryPage() {
           <FilterBar value={filter} onChange={setFilter} />
 
           <span className="text-xs text-text-secondary/60 whitespace-nowrap">
-            {filteredTransactions.length}/{transactions.length}
+            {transactions.length} / {totalCount} loaded
           </span>
         </div>
 
@@ -241,7 +239,7 @@ export default function HistoryPage() {
           style={{ height: selected ? `${100 - bottomHeight}%` : '100%' }}
         >
           <TrafficTable
-            transactions={filteredTransactions}
+            transactions={transactions}
             selected={selected}
             onSelect={(reqData) => setSelected(reqData)}
             loadMore={loadMore}

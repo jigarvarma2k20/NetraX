@@ -66,6 +66,14 @@ export function GetCAInfo() {
   return window['go']['main']['App']['GetCAInfo']();
 }
 
+export function GetFilteredRequests(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetFilteredRequests'](arg1, arg2, arg3);
+}
+
+export function GetFilteredRequestsCount(arg1) {
+  return window['go']['main']['App']['GetFilteredRequestsCount'](arg1);
+}
+
 export function GetInterceptedRequests() {
   return window['go']['main']['App']['GetInterceptedRequests']();
 }
@@ -110,8 +118,8 @@ export function ResetProject() {
   return window['go']['main']['App']['ResetProject']();
 }
 
-export function SaveRepeater(arg1, arg2, arg3, arg4, arg5, arg6) {
-  return window['go']['main']['App']['SaveRepeater'](arg1, arg2, arg3, arg4, arg5, arg6);
+export function SaveRepeater(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRepeater'](arg1, arg2, arg3);
 }
 
 export function SaveSettings(arg1) {
@@ -138,6 +146,6 @@ export function StopMCPServer() {
   return window['go']['main']['App']['StopMCPServer']();
 }
 
-export function UpdateRepeater(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-  return window['go']['main']['App']['UpdateRepeater'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+export function UpdateRepeater(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateRepeater'](arg1, arg2, arg3, arg4);
 }

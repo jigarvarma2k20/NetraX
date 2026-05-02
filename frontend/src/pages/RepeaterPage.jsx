@@ -46,6 +46,7 @@ export default function RepeaterPage() {
     try {
       const result = await ExecuteRequest(activeTab.request);
       setTabResponse(activeTabId, result.response);
+      setTimeout(() => persistTab(activeTabId), 0);
     } catch (err) {
       setTabLoading(activeTabId, false);
     }

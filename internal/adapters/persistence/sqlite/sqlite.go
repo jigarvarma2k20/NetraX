@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/jigarvarma2k20/netrax/internal/core/domain"
 
@@ -78,6 +79,17 @@ func createTables(conn *sql.DB) error {
 		header TEXT,
 		body TEXT,
 		modified_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS repeater_responses (
+		id INTEGER PRIMARY KEY,
+		request_id INTEGER,
+		status TEXT,
+		status_code INTEGER,
+		proto TEXT,
+		header TEXT,
+		content_length INTEGER,
+		content_type TEXT,
+		body TEXT
 	);
 	CREATE TABLE IF NOT EXISTS agent_history (
 		id INTEGER PRIMARY KEY,
@@ -191,6 +203,141 @@ func (db *DB) GetRequests(limit, offset int) ([]domain.HTTPTransactionDTO, error
 	return transactions, nil
 }
 
+func buildFilteredWhereClause(opts domain.FilterOptions) (string, []interface{}) {
+	var queryBuilder strings.Builder
+	var args []interface{}
+
+	if opts.SearchQuery != "" {
+		likeQuery := "%" + opts.SearchQuery + "%"
+		queryBuilder.WriteString(" AND (r.url LIKE ? OR r.header LIKE ? OR r.body LIKE ? OR res.header LIKE ? OR res.body LIKE ?)")
+		args = append(args, likeQuery, likeQuery, likeQuery, likeQuery, likeQuery)
+	}
+
+	if len(opts.StatusCodes) > 0 {
+		var statusConditions []string
+		for _, sc := range opts.StatusCodes {
+			switch sc {
+			case "2xx":
+				statusConditions = append(statusConditions, "(res.status_code >= 200 AND res.status_code < 300)")
+			case "3xx":
+				statusConditions = append(statusConditions, "(res.status_code >= 300 AND res.status_code < 400)")
+			case "4xx":
+				statusConditions = append(statusConditions, "(res.status_code >= 400 AND res.status_code < 500)")
+			case "5xx":
+				statusConditions = append(statusConditions, "(res.status_code >= 500 AND res.status_code < 600)")
+			}
+		}
+		if len(statusConditions) > 0 {
+			queryBuilder.WriteString(" AND (" + strings.Join(statusConditions, " OR ") + ")")
+		}
+	}
+
+	if opts.HideMedia {
+		queryBuilder.WriteString(` AND NOT (
+			r.url LIKE '%.png' OR r.url LIKE '%.jpg' OR r.url LIKE '%.jpeg' OR r.url LIKE '%.gif' 
+			OR r.url LIKE '%.webp' OR r.url LIKE '%.svg' OR r.url LIKE '%.ico' OR r.url LIKE '%.mp4' 
+			OR res.content_type LIKE 'image/%' OR res.content_type LIKE 'video/%'
+		)`)
+	}
+
+	if opts.HideCSS {
+		queryBuilder.WriteString(` AND NOT (r.url LIKE '%.css' OR res.content_type LIKE 'text/css%')`)
+	}
+
+	if opts.HideJS {
+		queryBuilder.WriteString(` AND NOT (r.url LIKE '%.js' OR res.content_type LIKE 'application/javascript%' OR res.content_type LIKE 'text/javascript%')`)
+	}
+
+	return queryBuilder.String(), args
+}
+
+// GetFilteredRequests retrieves requests matching a query with pagination
+func (db *DB) GetFilteredRequests(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+	whereClause, args := buildFilteredWhereClause(opts)
+
+	query := `
+	SELECT r.id, r.method, r.url, r.proto, r.host, r.remote_addr, r.header, r.content_length, r.transfer_encoding, r.close,
+	       res.id, res.status, res.status_code, res.proto, res.header, res.content_length, res.content_type
+	FROM requests r
+	LEFT JOIN responses res ON r.id = res.request_id
+	WHERE 1=1 ` + whereClause + `
+	ORDER BY r.id DESC LIMIT ? OFFSET ?
+	`
+	args = append(args, limit, offset)
+
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []domain.HTTPTransactionDTO
+
+	for rows.Next() {
+		var req domain.HTTPRequestDTO
+		var respID sql.NullInt64
+		var respStatus sql.NullString
+		var respStatusCode sql.NullInt64
+		var respProto sql.NullString
+		var respHeader sql.NullString
+		var respContentLength sql.NullInt64
+		var respContentType sql.NullString
+
+		err := rows.Scan(
+			&req.ID, &req.Method, &req.URL, &req.Proto, &req.Host, &req.RemoteAddr,
+			&req.Header, &req.ContentLength, &req.TransferEncoding, &req.Close,
+			&respID, &respStatus, &respStatusCode, &respProto, &respHeader,
+			&respContentLength, &respContentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		transaction := domain.HTTPTransactionDTO{
+			Request: req,
+			Index:   req.ID,
+		}
+
+		if respID.Valid {
+			transaction.Response = domain.HTTPResponseDTO{
+				ID:            respID.Int64,
+				Status:        respStatus.String,
+				StatusCode:    int(respStatusCode.Int64),
+				Proto:         respProto.String,
+				Header:        respHeader.String,
+				ContentLength: int(respContentLength.Int64),
+				ContentType:   respContentType.String,
+			}
+		}
+
+		transactions = append(transactions, transaction)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
+}
+
+// GetFilteredRequestsCount returns the total number of requests matching the given filters
+func (db *DB) GetFilteredRequestsCount(opts domain.FilterOptions) (int, error) {
+	whereClause, args := buildFilteredWhereClause(opts)
+
+	query := `
+	SELECT COUNT(r.id)
+	FROM requests r
+	LEFT JOIN responses res ON r.id = res.request_id
+	WHERE 1=1 ` + whereClause
+
+	var count int
+	err := db.conn.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (db *DB) GetRequestByIDWithoutBody(id int64) (*domain.HTTPTransactionDTO, error) {
 	query := `
 	SELECT r.id, r.method, r.url, r.proto, r.host, r.remote_addr, r.header, r.content_length, r.transfer_encoding, r.close,
@@ -302,40 +449,71 @@ func (db *DB) GetRequestByID(id int64) (*domain.HTTPTransactionDTO, error) {
 
 // Repeater Methods
 
-func (db *DB) SaveRepeater(name, method, url, proto, header, body string) (int64, error) {
-	query := `INSERT INTO repeater_requests (name, method, url, proto, header, body) VALUES (?, ?, ?, ?, ?, ?)`
-	res, err := db.conn.Exec(query, name, method, url, proto, header, body)
+func (db *DB) SaveRepeater(name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) (int64, error) {
+	reqQuery := `INSERT INTO repeater_requests (name, method, url, proto, header, body) VALUES (?, ?, ?, ?, ?, ?)`
+	result, err := db.conn.Exec(reqQuery, name, req.Method, req.URL, req.Proto, req.Header, req.Body)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+
+	reqID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	if res != nil && (res.StatusCode != 0 || res.Body != "") {
+		resQuery := `INSERT INTO repeater_responses (request_id, status, status_code, proto, header, content_length, content_type, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = db.conn.Exec(resQuery, reqID, res.Status, res.StatusCode, res.Proto, res.Header, res.ContentLength, res.ContentType, res.Body)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return reqID, nil
 }
 
-func (db *DB) UpdateRepeater(id int64, name, method, url, proto, header, body string) error {
-	query := `UPDATE repeater_requests SET name = ?, method = ?, url = ?, proto = ?, header = ?, body = ?, modified_at = CURRENT_TIMESTAMP WHERE id = ?`
-	_, err := db.conn.Exec(query, name, method, url, proto, header, body, id)
-	return err
+func (db *DB) UpdateRepeater(id int64, name string, req domain.HTTPRequestDTO, res *domain.HTTPResponseDTO) error {
+	reqQuery := `UPDATE repeater_requests SET name = ?, method = ?, url = ?, proto = ?, header = ?, body = ?, modified_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.conn.Exec(reqQuery, name, req.Method, req.URL, req.Proto, req.Header, req.Body, id)
+	if err != nil {
+		return err
+	}
+
+	db.conn.Exec(`DELETE FROM repeater_responses WHERE request_id = ?`, id)
+
+	if res != nil && (res.StatusCode != 0 || res.Body != "") {
+		resQuery := `INSERT INTO repeater_responses (request_id, status, status_code, proto, header, content_length, content_type, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = db.conn.Exec(resQuery, id, res.Status, res.StatusCode, res.Proto, res.Header, res.ContentLength, res.ContentType, res.Body)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (db *DB) DeleteRepeater(id int64) error {
+	db.conn.Exec(`DELETE FROM repeater_responses WHERE request_id = ?`, id)
 	query := `DELETE FROM repeater_requests WHERE id = ?`
 	_, err := db.conn.Exec(query, id)
 	return err
 }
 
 type RepeaterRequest struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	Method   string `json:"method"`
-	URL      string `json:"url"`
-	Proto    string `json:"proto"`
-	Header   string `json:"header"`
-	Body     string `json:"body"`
-	Modified string `json:"modified_at"`
+	ID       int64                   `json:"id"`
+	Name     string                  `json:"name"`
+	Request  domain.HTTPRequestDTO   `json:"request"`
+	Response *domain.HTTPResponseDTO `json:"response"`
+	Modified string                  `json:"modified_at"`
 }
 
 func (db *DB) GetRepeaters() ([]RepeaterRequest, error) {
-	query := `SELECT id, name, method, url, proto, header, body, modified_at FROM repeater_requests ORDER BY id ASC`
+	query := `SELECT 
+		req.id, req.name, req.method, req.url, req.proto, req.header, req.body, req.modified_at,
+		res.id, res.status, res.status_code, res.proto, res.header, res.content_length, res.content_type, res.body
+		FROM repeater_requests req
+		LEFT JOIN repeater_responses res ON req.id = res.request_id
+		ORDER BY req.id ASC`
 	rows, err := db.conn.Query(query)
 	if err != nil {
 		return nil, err
@@ -345,14 +523,45 @@ func (db *DB) GetRepeaters() ([]RepeaterRequest, error) {
 	var requests []RepeaterRequest
 	for rows.Next() {
 		var r RepeaterRequest
-		var proto sql.NullString // Handle possible NULLs
-		if err := rows.Scan(&r.ID, &r.Name, &r.Method, &r.URL, &proto, &r.Header, &r.Body, &r.Modified); err != nil {
+		var req domain.HTTPRequestDTO
+		var res domain.HTTPResponseDTO
+
+		var reqProto sql.NullString
+		var resID sql.NullInt64
+		var resStatus sql.NullString
+		var resStatusCode sql.NullInt64
+		var resProto sql.NullString
+		var resHeader sql.NullString
+		var resContentLength sql.NullInt64
+		var resContentType sql.NullString
+		var resBody sql.NullString
+
+		if err := rows.Scan(
+			&r.ID, &r.Name, &req.Method, &req.URL, &reqProto, &req.Header, &req.Body, &r.Modified,
+			&resID, &resStatus, &resStatusCode, &resProto, &resHeader, &resContentLength, &resContentType, &resBody,
+		); err != nil {
 			return nil, err
 		}
-		r.Proto = proto.String
-		if r.Proto == "" {
-			r.Proto = "HTTP/1.1"
+
+		req.Proto = reqProto.String
+		if req.Proto == "" {
+			req.Proto = "HTTP/1.1"
 		}
+
+		r.Request = req
+
+		if resID.Valid {
+			res.ID = resID.Int64
+			res.Status = resStatus.String
+			res.StatusCode = int(resStatusCode.Int64)
+			res.Proto = resProto.String
+			res.Header = resHeader.String
+			res.ContentLength = int(resContentLength.Int64)
+			res.ContentType = resContentType.String
+			res.Body = resBody.String
+			r.Response = &res
+		}
+
 		requests = append(requests, r)
 	}
 	return requests, nil
