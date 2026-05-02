@@ -22,6 +22,8 @@ type FilterOptions struct {
 	HideMedia   bool     `json:"hideMedia"`
 	HideCSS     bool     `json:"hideCSS"`
 	HideJS      bool     `json:"hideJS"`
+	SortBy      string   `json:"sortBy"`
+	SortDesc    bool     `json:"sortDesc"`
 }
 
 type HTTPTransactionDTO struct {

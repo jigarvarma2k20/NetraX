@@ -217,6 +217,8 @@ func buildFilteredWhereClause(opts domain.FilterOptions) (string, []interface{})
 		var statusConditions []string
 		for _, sc := range opts.StatusCodes {
 			switch sc {
+			case "1xx":
+				statusConditions = append(statusConditions, "(res.status_code >= 100 AND res.status_code < 200)")
 			case "2xx":
 				statusConditions = append(statusConditions, "(res.status_code >= 200 AND res.status_code < 300)")
 			case "3xx":
@@ -255,13 +257,36 @@ func buildFilteredWhereClause(opts domain.FilterOptions) (string, []interface{})
 func (db *DB) GetFilteredRequests(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
 	whereClause, args := buildFilteredWhereClause(opts)
 
+	orderCol := "r.id"
+	switch opts.SortBy {
+	case "method":
+		orderCol = "r.method"
+	case "url":
+		orderCol = "r.url"
+	case "status":
+		orderCol = "res.status_code"
+	case "id":
+		orderCol = "r.id"
+	}
+
+	orderDir := "ASC"
+	if opts.SortDesc {
+		orderDir = "DESC"
+	}
+
+	// Default empty opts.SortBy to descending ID
+	if opts.SortBy == "" {
+		orderCol = "r.id"
+		orderDir = "DESC"
+	}
+
 	query := `
 	SELECT r.id, r.method, r.url, r.proto, r.host, r.remote_addr, r.header, r.content_length, r.transfer_encoding, r.close,
 	       res.id, res.status, res.status_code, res.proto, res.header, res.content_length, res.content_type
 	FROM requests r
 	LEFT JOIN responses res ON r.id = res.request_id
 	WHERE 1=1 ` + whereClause + `
-	ORDER BY r.id DESC LIMIT ? OFFSET ?
+	ORDER BY ` + orderCol + ` ` + orderDir + ` LIMIT ? OFFSET ?
 	`
 	args = append(args, limit, offset)
 

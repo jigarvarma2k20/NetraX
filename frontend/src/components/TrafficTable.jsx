@@ -1,5 +1,6 @@
 import { GetRequestByID } from '../../wailsjs/go/main/App';
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function TrafficTable({
   transactions = [],
@@ -12,7 +13,10 @@ export default function TrafficTable({
   onCopyPythonRequests,
   onCopyFetch,
   onSendToRepeater,
-  onSendToComparer
+  onSendToComparer,
+  sortBy,
+  sortDesc,
+  onSort
 }) {
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -70,11 +74,23 @@ export default function TrafficTable({
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex w-full bg-[#0c101c] text-text-secondary text-xs font-bold border-b border-white/4 shrink-0 uppercase tracking-wider sticky top-0 z-10">
-        <div className="w-20 p-3 border-r border-white/4">Id</div>
-        <div className="w-24 p-3 border-r border-white/4">Method</div>
-        <div className="w-24 p-3 border-r border-white/4">Status</div>
-        <div className="flex-1 p-3 border-r border-white/4">URL</div>
-        <div className="w-24 p-3 text-right">Size</div>
+        <button onClick={() => onSort('id')} className="w-20 py-2 px-3 border-r border-white/4 flex items-center justify-between hover:bg-white/5 transition">
+          Id
+          {sortBy === 'id' && (sortDesc ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+        </button>
+        <button onClick={() => onSort('method')} className="w-24 py-2 px-3 border-r border-white/4 flex items-center justify-between hover:bg-white/5 transition">
+          Method
+          {sortBy === 'method' && (sortDesc ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+        </button>
+        <button onClick={() => onSort('status')} className="w-24 py-2 px-3 border-r border-white/4 flex items-center justify-between hover:bg-white/5 transition">
+          Status
+          {sortBy === 'status' && (sortDesc ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+        </button>
+        <button onClick={() => onSort('url')} className="flex-1 py-2 px-3 border-r border-white/4 flex items-center justify-between hover:bg-white/5 transition">
+          URL
+          {sortBy === 'url' && (sortDesc ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+        </button>
+        <div className="w-24 py-2 px-3 text-right">Size</div>
       </div>
 
       {/* Native Scroll List */}
@@ -98,23 +114,23 @@ export default function TrafficTable({
                 e.preventDefault();
                 setContextMenu({ x: e.clientX, y: e.clientY, txn: t });
               }}
-              className={`flex items-center hover:bg-white/3 cursor-pointer border-b border-white/4 text-sm font-mono transition-colors ${isSelected ? "bg-primary/6 border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}
+              className={`flex items-center hover:bg-white/3 cursor-pointer border-b border-white/4 text-[13px] font-mono transition-colors ${isSelected ? "bg-primary/6 border-l-2 border-l-primary" : "border-l-2 border-l-transparent"}`}
             >
-              <div className="w-20 p-2.5 shrink-0 text-text-secondary">
+              <div className="w-20 py-1.5 px-3 shrink-0 text-text-secondary">
                 {t.index}
               </div>
-              <div className="w-24 p-2.5 shrink-0">
-                <span className={`px-2 py-0.5 text-xs rounded font-medium ${methodColors[t.request.method] || 'bg-white/10 text-text-secondary'}`}>
+              <div className="w-24 py-1.5 px-3 shrink-0">
+                <span className={`px-2 py-0.5 text-[11px] rounded font-medium ${methodColors[t.request.method] || 'bg-white/10 text-text-secondary'}`}>
                   {t.request.method}
                 </span>
               </div>
-              <div className={`w-24 p-2.5 shrink-0 font-medium ${statusColor}`}>
+              <div className={`w-24 py-1.5 px-3 shrink-0 font-medium ${statusColor}`}>
                 {t.response && t.response.status_code !== 0 ? t.response.status_code : "..."}
               </div>
-              <div className="flex-1 p-2.5 text-text-primary truncate min-w-0" title={t.request.url}>
+              <div className="flex-1 py-1.5 px-3 text-text-primary truncate min-w-0" title={t.request.url}>
                 {t.request.url}
               </div>
-              <div className="w-24 p-2.5 shrink-0 text-text-secondary text-right">
+              <div className="w-24 py-1.5 px-3 shrink-0 text-text-secondary text-right">
                 {t.response && t.response.status_code !== 0 ? `${t.response.content_length}B` : "-"}
               </div>
             </div>

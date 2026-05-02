@@ -17,6 +17,8 @@ export const useHistoryStore = create((set, get) => ({
     hideCSS: false,
     hideJS: false,
     totalCount: 0,
+    sortBy: 'id',
+    sortDesc: true,
 
     setFilters: (filters) => {
         set({
@@ -31,14 +33,16 @@ export const useHistoryStore = create((set, get) => ({
     },
 
     fetchTotalCount: async () => {
-        const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS } = get();
+        const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
         try {
             const count = await GetFilteredRequestsCount({
                 searchQuery,
                 statusCodes,
                 hideMedia,
                 hideCSS,
-                hideJS
+                hideJS,
+                sortBy,
+                sortDesc
             });
             set({ totalCount: count });
         } catch (error) {
@@ -67,11 +71,11 @@ export const useHistoryStore = create((set, get) => ({
     },
 
     loadMore: async () => {
-        const { offset, LIMIT, hasMore, searchQuery, statusCodes, hideMedia, hideCSS, hideJS } = get();
+        const { offset, LIMIT, hasMore, searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
         if (!hasMore) return;
 
         try {
-            const hasFilters = searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS;
+            const hasFilters = searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc;
             let newTransactions = [];
             if (hasFilters) {
                 newTransactions = await GetFilteredRequests({
@@ -79,7 +83,9 @@ export const useHistoryStore = create((set, get) => ({
                     statusCodes,
                     hideMedia,
                     hideCSS,
-                    hideJS
+                    hideJS,
+                    sortBy,
+                    sortDesc
                 }, LIMIT, offset);
             } else {
                 newTransactions = await GetRequests(LIMIT, offset);
@@ -155,8 +161,8 @@ export const useHistoryStore = create((set, get) => ({
         get().loadMore();
 
         EventsOn("newRequestRecived", (id) => {
-            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS } = get();
-            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS) return;
+            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
+            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc) return;
             GetRequestByID(id, true).then((data) => {
                 get().addTransaction({
                     request: data.request,
@@ -168,8 +174,8 @@ export const useHistoryStore = create((set, get) => ({
         });
 
         EventsOn("requestWithResponse", (id) => {
-            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS } = get();
-            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS) return;
+            const { searchQuery, statusCodes, hideMedia, hideCSS, hideJS, sortBy, sortDesc } = get();
+            if (searchQuery || statusCodes.length > 0 || hideMedia || hideCSS || hideJS || sortBy !== 'id' || !sortDesc) return;
             GetRequestByID(id, true).then((data) => {
                 get().updateTransaction(id, data.response);
             }).catch(() => { });

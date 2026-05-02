@@ -101,7 +101,7 @@ export default function FilterBar({ value, onChange, className = "" }) {
             <div>
               <p className="text-xs text-text-secondary mb-2">Status Codes</p>
               <div className="grid grid-cols-2 gap-2">
-                {['2xx', '3xx', '4xx', '5xx'].map(code => (
+                {['1xx', '2xx', '3xx', '4xx', '5xx'].map(code => (
                   <button
                     key={code}
                     onClick={() => toggleStatus(code)}

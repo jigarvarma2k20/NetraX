@@ -45,6 +45,8 @@ export namespace domain {
 	    hideMedia: boolean;
 	    hideCSS: boolean;
 	    hideJS: boolean;
+	    sortBy: string;
+	    sortDesc: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FilterOptions(source);
@@ -57,6 +59,8 @@ export namespace domain {
 	        this.hideMedia = source["hideMedia"];
 	        this.hideCSS = source["hideCSS"];
 	        this.hideJS = source["hideJS"];
+	        this.sortBy = source["sortBy"];
+	        this.sortDesc = source["sortDesc"];
 	    }
 	}
 	export class HTTPRequestDTO {

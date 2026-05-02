@@ -104,6 +104,9 @@ export default function HistoryPage() {
   const reset = useHistoryStore(s => s.reset);
   const setSearchQueryStore = useHistoryStore(s => s.setSearchQuery);
   const totalCount = useHistoryStore(s => s.totalCount);
+  const sortBy = useHistoryStore(s => s.sortBy);
+  const sortDesc = useHistoryStore(s => s.sortDesc);
+  const setFilters = useHistoryStore(s => s.setFilters);
 
   const addTabFromTransaction = useRepeaterStore(s => s.addTabFromTransaction);
 
@@ -250,6 +253,15 @@ export default function HistoryPage() {
             onCopyFetch={onCopyFetch}
             onSendToRepeater={onSendToRepeater}
             onSendToComparer={onSendToComparer}
+            sortBy={sortBy}
+            sortDesc={sortDesc}
+            onSort={(col) => {
+              if (sortBy === col) {
+                setFilters({ sortDesc: !sortDesc });
+              } else {
+                setFilters({ sortBy: col, sortDesc: false });
+              }
+            }}
           />
         </div>
 
