@@ -171,6 +171,14 @@ export default function HistoryPage() {
     navigate('/repeater');
   };
 
+  const onSendToAgent = (txn) => {
+    const id = txn?.index;
+    if (id !== undefined) {
+      localStorage.setItem('agent_input_draft', `Analyze #${id}`);
+      navigate('/agent');
+    }
+  };
+
   const onSendToComparer = (txn) => {
     const key = 'netrax.comparer.selection';
     const id = Number(txn?.index);
@@ -253,6 +261,7 @@ export default function HistoryPage() {
             onCopyFetch={onCopyFetch}
             onSendToRepeater={onSendToRepeater}
             onSendToComparer={onSendToComparer}
+            onSendToAgent={onSendToAgent}
             sortBy={sortBy}
             sortDesc={sortDesc}
             onSort={(col) => {

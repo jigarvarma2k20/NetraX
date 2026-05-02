@@ -649,23 +649,52 @@ func (m *MCPServer) handleExecuteCmd(ctx context.Context, request mcp.CallToolRe
 	return mcp.NewToolResultText(output), nil
 }
 
-func sanitizeForPDF(content string) string {
+func prepareContentForPDF(content string) string {
 	replacements := map[string]string{
 		"—": "-",
 		"–": "-",
-		"‑": "-", // Non-breaking hyphen
+		"‑": "-",
 		"“": `"`,
 		"”": `"`,
 		"‘": "'",
 		"’": "'",
 		"…": "...",
-		" ": " ", // Non-breaking space
-		" ": " ", // Narrow no-break space (U+202F)
+		" ": " ",
+		" ": " ",
+		"•": "*",
+		"→": "->",
+		"←": "<-",
 	}
 	for k, v := range replacements {
 		content = strings.ReplaceAll(content, k, v)
 	}
-	return content
+
+	// Fix breaking text by hard-wrapping long lines (URLs, tokens, etc)
+	lines := strings.Split(content, "\n")
+	var wrappedLines []string
+	const maxLineLen = 85 // Safe width for standard A4 PDF with mdtopdf
+
+	for _, line := range lines {
+		// Don't wrap code block markers
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			wrappedLines = append(wrappedLines, line)
+			continue
+		}
+
+		if len(line) <= maxLineLen {
+			wrappedLines = append(wrappedLines, line)
+			continue
+		}
+
+		curr := line
+		for len(curr) > maxLineLen {
+			wrappedLines = append(wrappedLines, curr[:maxLineLen])
+			curr = curr[maxLineLen:]
+		}
+		wrappedLines = append(wrappedLines, curr)
+	}
+
+	return strings.Join(wrappedLines, "\n")
 }
 
 func (m *MCPServer) handleExportReportPdf(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -679,7 +708,7 @@ func (m *MCPServer) handleExportReportPdf(ctx context.Context, request mcp.CallT
 		return mcp.NewToolResultError("Missing content string"), nil
 	}
 
-	content = sanitizeForPDF(content)
+	content = prepareContentForPDF(content)
 
 	filename, _ := args["filename"].(string)
 	if filename == "" {

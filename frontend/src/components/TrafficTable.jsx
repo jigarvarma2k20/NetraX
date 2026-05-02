@@ -1,6 +1,6 @@
 import { GetRequestByID } from '../../wailsjs/go/main/App';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Bot } from 'lucide-react';
 
 export default function TrafficTable({
   transactions = [],
@@ -14,6 +14,7 @@ export default function TrafficTable({
   onCopyFetch,
   onSendToRepeater,
   onSendToComparer,
+  onSendToAgent,
   sortBy,
   sortDesc,
   onSort
@@ -193,6 +194,13 @@ export default function TrafficTable({
             className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
           >
             Send to Comparer
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction(onSendToAgent, contextMenu.txn)}
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+          >
+            Send to AI Agent
           </button>
         </div>
       )}

@@ -104,7 +104,7 @@ const PROVIDER_PRESETS = [
 
 export default function AgentPage() {
     const [messages, setMessages] = useState([]);
-    const [input, setInput] = useState('');
+    const [input, setInput] = useState(() => localStorage.getItem('agent_input_draft') || '');
     const [loading, setLoading] = useState(false);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [visibleCount, setVisibleCount] = useState(CHAT_PAGE_SIZE);
@@ -139,6 +139,10 @@ export default function AgentPage() {
     useEffect(() => {
         localStorage.setItem('agent_config', JSON.stringify(config));
     }, [config]);
+
+    useEffect(() => {
+        localStorage.setItem('agent_input_draft', input);
+    }, [input]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -198,6 +202,7 @@ export default function AgentPage() {
 
         const userMsg = input.trim();
         setInput('');
+        localStorage.removeItem('agent_input_draft');
 
         const newHistory = [...messages.filter(m => m.role === 'user' || m.role === 'assistant')];
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
