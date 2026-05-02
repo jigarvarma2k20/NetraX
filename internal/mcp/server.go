@@ -30,6 +30,7 @@ type MCPServer struct {
 
 	// App context references to interact with requests
 	getRequests             func(limit, offset int) ([]domain.HTTPTransactionDTO, error)
+	getFilteredRequests     func(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error)
 	getRequest              func(id int64) (*domain.HTTPTransactionDTO, error)
 	executeRequest          func(req domain.HTTPRequestDTO) (*domain.HTTPTransactionDTO, error)
 	setIntercept            func(enabled bool)
@@ -47,6 +48,7 @@ type MCPServer struct {
 
 func NewMCPServer(
 	getRequests func(limit, offset int) ([]domain.HTTPTransactionDTO, error),
+	getFilteredRequests func(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error),
 	getRequest func(id int64) (*domain.HTTPTransactionDTO, error),
 	executeRequest func(req domain.HTTPRequestDTO) (*domain.HTTPTransactionDTO, error),
 	setIntercept func(enabled bool),
@@ -65,6 +67,7 @@ func NewMCPServer(
 		port:                    8085,        // Default MCP SSE port
 		address:                 "127.0.0.1", // Default MCP Address
 		getRequests:             getRequests,
+		getFilteredRequests:     getFilteredRequests,
 		getRequest:              getRequest,
 		executeRequest:          executeRequest,
 		setIntercept:            setIntercept,
@@ -96,6 +99,18 @@ func (m *MCPServer) initServer() {
 		mcp.WithDescription("Fetch the most recent HTTP transactions captured by NetraX"),
 		mcp.WithNumber("limit", mcp.Description("Number of requests to fetch (max 50)"), mcp.DefaultNumber(10)),
 	), m.handleGetTraffic)
+ 
+	m.srv.AddTool(mcp.NewTool("search_traffic",
+		mcp.WithDescription("Search and filter HTTP traffic using advanced criteria"),
+		mcp.WithString("query", mcp.Description("Search string for URL, headers, or body")),
+		mcp.WithString("status_codes", mcp.Description("Comma-separated status codes/ranges (e.g., '2xx,404,5xx')")),
+		mcp.WithBoolean("hide_media", mcp.Description("Hide image/video/audio")),
+		mcp.WithBoolean("hide_css", mcp.Description("Hide CSS files")),
+		mcp.WithBoolean("hide_js", mcp.Description("Hide JS files")),
+		mcp.WithString("sort_by", mcp.Description("Field to sort by (id, method, status, url)"), mcp.DefaultString("id")),
+		mcp.WithBoolean("sort_desc", mcp.Description("Sort in descending order"), mcp.DefaultBoolean(true)),
+		mcp.WithNumber("limit", mcp.Description("Number of results (max 50)"), mcp.DefaultNumber(20)),
+	), m.handleSearchTraffic)
 
 	m.srv.AddTool(mcp.NewTool("get_request",
 		mcp.WithDescription("Fetch detailed info for a specific request ID (including body and headers)"),
@@ -284,6 +299,69 @@ func (m *MCPServer) handleGetTraffic(ctx context.Context, request mcp.CallToolRe
 
 	if result == "" {
 		result = "No traffic recorded yet."
+	}
+
+	return mcp.NewToolResultText(result), nil
+}
+
+func (m *MCPServer) handleSearchTraffic(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	opts := domain.FilterOptions{
+		SortBy:   "id",
+		SortDesc: true,
+	}
+	limit := 20
+	offset := 0
+
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if ok {
+		if q, ok := args["query"].(string); ok {
+			opts.SearchQuery = q
+		}
+		if sc, ok := args["status_codes"].(string); ok && sc != "" {
+			parts := strings.Split(sc, ",")
+			for _, p := range parts {
+				trimmed := strings.TrimSpace(p)
+				if trimmed != "" {
+					opts.StatusCodes = append(opts.StatusCodes, trimmed)
+				}
+			}
+		}
+		if hm, ok := args["hide_media"].(bool); ok {
+			opts.HideMedia = hm
+		}
+		if hc, ok := args["hide_css"].(bool); ok {
+			opts.HideCSS = hc
+		}
+		if hj, ok := args["hide_js"].(bool); ok {
+			opts.HideJS = hj
+		}
+		if sb, ok := args["sort_by"].(string); ok {
+			opts.SortBy = sb
+		}
+		if sd, ok := args["sort_desc"].(bool); ok {
+			opts.SortDesc = sd
+		}
+		if l, ok := args["limit"].(float64); ok {
+			limit = int(l)
+		}
+	}
+
+	if limit > 50 {
+		limit = 50
+	}
+
+	requests, err := m.getFilteredRequests(opts, limit, offset)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to search traffic: %v", err)), nil
+	}
+
+	var result string
+	for _, req := range requests {
+		result += fmt.Sprintf("ID: %d | [%s] %s | Status: %v\n", req.Index, req.Request.Method, req.Request.URL, req.Response.Status)
+	}
+
+	if result == "" {
+		result = "No matching traffic found."
 	}
 
 	return mcp.NewToolResultText(result), nil

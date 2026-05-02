@@ -52,6 +52,9 @@ func NewApp() *App {
 		func(limit, offset int) ([]domain.HTTPTransactionDTO, error) {
 			return appInstance.GetRequests(limit, offset)
 		},
+		func(opts domain.FilterOptions, limit, offset int) ([]domain.HTTPTransactionDTO, error) {
+			return appInstance.GetFilteredRequests(opts, limit, offset)
+		},
 		func(id int64) (*domain.HTTPTransactionDTO, error) {
 			return appInstance.GetRequestByID(id, false)
 		},
