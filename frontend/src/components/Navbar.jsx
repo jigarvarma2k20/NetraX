@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ExportProject, ImportProject, ResetProject } from "../../wailsjs/go/main/App";
 import { useHistoryStore } from "../stores/useHistoryStore";

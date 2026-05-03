@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Clock3, Database, Globe, Layers3, Server, ShieldAlert, TrendingUp, TriangleAlert } from 'lucide-react';

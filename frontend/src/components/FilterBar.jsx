@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { Search, X, SlidersHorizontal, Check } from "lucide-react";
 import { useHistoryStore } from "../stores/useHistoryStore";

@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 
 /**
  * Parse a header string (JSON or raw) into an object.

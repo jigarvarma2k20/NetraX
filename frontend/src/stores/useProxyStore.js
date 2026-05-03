@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 import { create } from 'zustand';
 import { SetIntercept, ForwardRequest, DropRequest, ForwardResponse, DropResponse, GetRequestByID, ForwardAll, ForwardAndInterceptResponse } from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';

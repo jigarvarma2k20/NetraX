@@ -1,3 +1,12 @@
+/**
+ * This file is part of NetraX.
+ * Repository: https://github.com/jigarvarma2k20/NetraX
+ *
+ * Copyright (c) 2026 NetraX Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 import { useState, useEffect } from 'react';
 import { GetSettings, SaveSettings, GetCAInfo, RegenerateCA, CheckProxyBindingsAvailability } from '../../wailsjs/go/main/App';
 import { Shield, Settings as SettingsIcon, Save, RefreshCw, AlertTriangle, Download, Check, Plus, Trash2, XCircle } from 'lucide-react';

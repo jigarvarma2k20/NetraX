@@ -1,8 +1,11 @@
 # NetraX
 
+![License](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Build](https://img.shields.io/badge/build-Wails-00ADD8.svg)
 ![Language](https://img.shields.io/badge/language-Go-00ADD8.svg)
-![Architecture](https://img.shields.io/badge/architecture-Ai_Powered-8A2BE2.svg)
+![Frontend](https://img.shields.io/badge/frontend-React-61DAFB.svg)
+![Architecture](https://img.shields.io/badge/architecture-AI_Powered-8A2BE2.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
 
 
 ## About
@@ -43,10 +46,23 @@ Your dedicated cybersecurity copilot integrated directly into the proxy layout:
 
 ## Setup & Running
 
+Prebuilt binaries are available on the [Releases](https://github.com/jigarvarma2k20/NetraX/releases) page.
+
+Steps:
+1. Go to the releases page  
+2. Download the binary for your platform (Windows / Linux / macOS)  
+3. Extract (if needed)  
+4. Run the executable  
+
+No additional setup is required.
+
+## Build from Source
+
 ### Prerequisites
-- [Go](https://golang.org/doc/install) (1.25+)
-- [Node.js](https://nodejs.org/en/download/) (18+)
-- [Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+
+- [Go](https://golang.org/doc/install) (1.25+)  
+- [Node.js](https://nodejs.org/en/download/) (18+)  
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation)  
 
 ### Development
 Launch the interactive live-reloading development environment. This spins up a Vite dev server for the frontend and attaches it to the Go backend window:
@@ -67,3 +83,32 @@ wails build -platform linux/amd64
 wails build -platform darwin/universal
 ```
 The final binary will be generated inside the `build/bin/` directory.
+
+## License
+
+This project is licensed under the GNU General Public License v3.  
+See the `LICENSE` file for the full license text.
+
+
+## Third Party Licenses
+
+This project includes third-party components.  
+See the `THIRD_PARTY_LICENSES` file for details.
+
+
+## Acknowledgements
+
+- [goproxy](https://github.com/elazarl/goproxy) by Elazar Leibovich  
+- The open-source community and contributors whose work made this project possible  
+
+
+## Disclaimer
+
+This project is intended for educational use and authorized security testing only.
+
+By using NetraX, you agree that:
+- You will only use it on systems you own or have explicit permission to test  
+- You are responsible for complying with all applicable laws and regulations  
+- The authors and contributors are not responsible for any misuse, damage, or legal consequences resulting from its use  
+
+Use responsibly.
