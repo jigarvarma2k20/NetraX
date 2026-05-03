@@ -39,6 +39,30 @@ export namespace config {
 
 export namespace domain {
 	
+	export class AppStats {
+	    totalRequests: number;
+	    responsesCaptured: number;
+	    errorResponses: number;
+	    uniqueHosts: number;
+	    totalResponseBytes: number;
+	    methodCounts: Record<string, number>;
+	    hostCounts: Record<string, number>;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.totalRequests = source["totalRequests"];
+	        this.responsesCaptured = source["responsesCaptured"];
+	        this.errorResponses = source["errorResponses"];
+	        this.uniqueHosts = source["uniqueHosts"];
+	        this.totalResponseBytes = source["totalResponseBytes"];
+	        this.methodCounts = source["methodCounts"];
+	        this.hostCounts = source["hostCounts"];
+	    }
+	}
 	export class FilterOptions {
 	    searchQuery: string;
 	    statusCodes: string[];

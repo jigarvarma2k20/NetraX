@@ -1,54 +1,66 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Clock3, Globe, Layers3, Server, ShieldAlert, TrendingUp, TriangleAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Clock3, Database, Globe, Layers3, Server, ShieldAlert, TrendingUp, TriangleAlert } from 'lucide-react';
 import { useHistoryStore } from '../stores/useHistoryStore';
 import { useProxyStore } from '../stores/useProxyStore';
+import { GetAppStats } from '../../wailsjs/go/main/App';
+
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
 
 export default function DashboardPage() {
     const transactionIds = useHistoryStore(state => state.transactionIds);
     const transactionMap = useHistoryStore(state => state.transactionMap);
-    const loadMore = useHistoryStore(state => state.loadMore);
-    const hasMore = useHistoryStore(state => state.hasMore);
     const pendingRequests = useProxyStore(state => state.pendingRequests.length);
     const pendingResponses = useProxyStore(state => state.pendingResponses.length);
+
+    const [stats, setStats] = useState({
+        totalRequests: 0,
+        responsesCaptured: 0,
+        errorResponses: 0,
+        uniqueHosts: 0,
+        totalResponseBytes: 0,
+        methodCounts: {},
+        hostCounts: {}
+    });
+
+    useEffect(() => {
+        GetAppStats().then(setStats).catch(console.error);
+        
+        const interval = setInterval(() => {
+            GetAppStats().then(setStats).catch(console.error);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const transactions = transactionIds
         .map(id => transactionMap[id])
         .filter(Boolean)
         .sort((a, b) => b.index - a.index);
 
-    const totalRequests = transactions.length;
-    const responsesCaptured = transactions.filter((txn) => txn.response && txn.response.status_code !== 0).length;
-    const errorResponses = transactions.filter((txn) => txn.response && txn.response.status_code >= 400).length;
-    const uniqueHosts = new Set(transactions.map((txn) => txn.request.host).filter(Boolean)).size;
-    const totalResponseBytes = transactions.reduce((sum, txn) => sum + (txn.response?.content_length || 0), 0);
-    const averageResponseBytes = responsesCaptured > 0 ? Math.round(totalResponseBytes / responsesCaptured) : 0;
-    const responseRate = totalRequests > 0 ? Math.round((responsesCaptured / totalRequests) * 100) : 0;
-
-    const methodCounts = transactions.reduce((acc, txn) => {
-        const method = txn.request.method || 'OTHER';
-        acc[method] = (acc[method] || 0) + 1;
-        return acc;
-    }, {});
-
-    const hostCounts = transactions.reduce((acc, txn) => {
-        const host = txn.request.host || txn.request.url || 'unknown';
-        acc[host] = (acc[host] || 0) + 1;
-        return acc;
-    }, {});
-
-    const methodEntries = Object.entries(methodCounts).sort((a, b) => b[1] - a[1]);
-    const hostEntries = Object.entries(hostCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const recentTransactions = transactions.slice(0, 6);
-    const latestTransaction = transactions[0];
     const pendingTotal = pendingRequests + pendingResponses;
 
+    const methodEntries = Object.entries(stats.methodCounts || {}).sort((a, b) => b[1] - a[1]);
+    const hostEntries = Object.entries(stats.hostCounts || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const recentTransactions = transactions.slice(0, 10);
+    
+    // Derived stats
+    const averageResponseBytes = stats.responsesCaptured > 0 ? Math.round(stats.totalResponseBytes / stats.responsesCaptured) : 0;
+    const responseRate = stats.totalRequests > 0 ? Math.round((stats.responsesCaptured / stats.totalRequests) * 100) : 0;
+
     const metricCards = [
-        { label: 'Requests captured', value: totalRequests, icon: Server, tone: 'text-primary' },
-        { label: 'Responses captured', value: responsesCaptured, icon: CheckCircle2, tone: 'text-accent-green' },
+        { label: 'Requests captured', value: stats.totalRequests, icon: Server, tone: 'text-primary' },
         { label: 'Pending intercepts', value: pendingTotal, icon: Clock3, tone: 'text-accent-yellow' },
-        { label: 'Unique hosts', value: uniqueHosts, icon: Globe, tone: 'text-accent-blue' },
-        { label: 'Error responses', value: errorResponses, icon: TriangleAlert, tone: 'text-accent-red' },
-        { label: 'Average response size', value: `${averageResponseBytes}B`, icon: Layers3, tone: 'text-text-primary' },
+        { label: 'Unique hosts', value: stats.uniqueHosts, icon: Globe, tone: 'text-accent-blue' },
+        { label: 'Error responses', value: stats.errorResponses, icon: TriangleAlert, tone: 'text-accent-red' },
+        { label: 'Total data observed', value: formatBytes(stats.totalResponseBytes), icon: Database, tone: 'text-accent-green' },
+        { label: 'Average response size', value: formatBytes(averageResponseBytes), icon: Layers3, tone: 'text-text-primary' },
     ];
 
     return (
@@ -80,15 +92,6 @@ export default function DashboardPage() {
                                 <h2 className="text-base font-semibold text-white">Recent requests</h2>
                                 <p className="text-xs text-text-secondary/60">Latest traffic captured in the history store.</p>
                             </div>
-                            {hasMore ? (
-                                <button
-                                    type="button"
-                                    onClick={loadMore}
-                                    className="rounded-lg border border-white/8 bg-white/5 px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-white/10 hover:text-white"
-                                >
-                                    Load more
-                                </button>
-                            ) : null}
                         </div>
 
                         <div className="divide-y divide-white/6">
@@ -145,7 +148,7 @@ export default function DashboardPage() {
 
                             <div className="mt-4 space-y-3">
                                 {methodEntries.length > 0 ? methodEntries.map(([method, count]) => {
-                                    const share = totalRequests > 0 ? Math.round((count / totalRequests) * 100) : 0;
+                                    const share = stats.totalRequests > 0 ? Math.round((count / stats.totalRequests) * 100) : 0;
                                     return (
                                         <div key={method}>
                                             <div className="mb-1 flex items-center justify-between text-xs text-text-secondary">
@@ -176,7 +179,7 @@ export default function DashboardPage() {
 
                             <div className="mt-4 space-y-3">
                                 {hostEntries.length > 0 ? hostEntries.map(([host, count]) => {
-                                    const share = totalRequests > 0 ? Math.round((count / totalRequests) * 100) : 0;
+                                    const share = stats.totalRequests > 0 ? Math.round((count / stats.totalRequests) * 100) : 0;
                                     return (
                                         <div key={host} className="rounded-xl border border-white/6 bg-white/3 p-3">
                                             <div className="flex items-center justify-between gap-3">
@@ -191,36 +194,6 @@ export default function DashboardPage() {
                                 }) : (
                                     <div className="rounded-xl border border-dashed border-white/8 px-4 py-6 text-sm text-text-secondary/60">
                                         Host activity will show up here as requests are observed.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/6 bg-panel-dark/85 p-5 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
-                            <div className="flex items-center justify-between gap-4">
-                                <div>
-                                    <h2 className="text-base font-semibold text-white">Latest activity</h2>
-                                    <p className="text-xs text-text-secondary/60">A quick glance at the most recent request.</p>
-                                </div>
-                                <ShieldAlert size={18} className="text-accent-yellow" />
-                            </div>
-
-                            <div className="mt-4 rounded-xl border border-white/6 bg-white/3 p-4">
-                                {latestTransaction ? (
-                                    <>
-                                        <div className="text-sm font-medium text-white">
-                                            {latestTransaction.request.method} {latestTransaction.request.host || latestTransaction.request.url}
-                                        </div>
-                                        <div className="mt-2 space-y-1 text-xs text-text-secondary/70">
-                                            <div className="truncate" title={latestTransaction.request.url}>{latestTransaction.request.url}</div>
-                                            <div>Response rate: {responseRate}%</div>
-                                            <div>Pending request queue: {pendingRequests}</div>
-                                            <div>Pending response queue: {pendingResponses}</div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="text-sm text-text-secondary/60">
-                                        No captured traffic yet. Start with the Setup page to begin monitoring.
                                     </div>
                                 )}
                             </div>

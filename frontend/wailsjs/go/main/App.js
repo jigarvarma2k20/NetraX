@@ -62,6 +62,10 @@ export function GetAgentHistory() {
   return window['go']['main']['App']['GetAgentHistory']();
 }
 
+export function GetAppStats() {
+  return window['go']['main']['App']['GetAppStats']();
+}
+
 export function GetCAInfo() {
   return window['go']['main']['App']['GetCAInfo']();
 }

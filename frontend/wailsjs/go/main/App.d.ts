@@ -36,6 +36,8 @@ export function ForwardResponse(arg1:number,arg2:domain.HTTPResponseDTO):Promise
 
 export function GetAgentHistory():Promise<Array<main.ChatMessage>>;
 
+export function GetAppStats():Promise<domain.AppStats>;
+
 export function GetCAInfo():Promise<main.CAInfo>;
 
 export function GetFilteredRequests(arg1:domain.FilterOptions,arg2:number,arg3:number):Promise<Array<domain.HTTPTransactionDTO>>;

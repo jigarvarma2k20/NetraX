@@ -627,3 +627,75 @@ func (db *DB) ClearAgentHistory() error {
 	_, err := db.conn.Exec(query)
 	return err
 }
+
+func (db *DB) GetAppStats() (*domain.AppStats, error) {
+	stats := &domain.AppStats{
+		MethodCounts: make(map[string]int),
+		HostCounts:   make(map[string]int),
+	}
+
+	// Get overall stats
+	queryStats := `
+		SELECT 
+			COUNT(req.id) as total_requests,
+			COUNT(res.id) as responses_captured,
+			SUM(CASE WHEN res.status_code >= 400 THEN 1 ELSE 0 END) as error_responses,
+			COUNT(DISTINCT req.host) as unique_hosts,
+			SUM(IFNULL(res.content_length, 0)) as total_response_bytes
+		FROM requests req
+		LEFT JOIN responses res ON req.id = res.request_id
+	`
+	
+	err := db.conn.QueryRow(queryStats).Scan(
+&stats.TotalRequests,
+		&stats.ResponsesCaptured,
+		&stats.ErrorResponses,
+		&stats.UniqueHosts,
+		&stats.TotalResponseBytes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get method counts
+	queryMethods := `SELECT method, COUNT(id) FROM requests GROUP BY method`
+	rows, err := db.conn.Query(queryMethods)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var method string
+			var count int
+			if err := rows.Scan(&method, &count); err == nil {
+				if method == "" {
+					method = "OTHER"
+				}
+				stats.MethodCounts[method] = count
+			}
+		}
+	}
+
+	// Get top hosts
+	queryHosts := `
+		SELECT host, COUNT(id) as count 
+		FROM requests 
+		GROUP BY host 
+		ORDER BY count DESC 
+		LIMIT 5
+	`
+	hostRows, err := db.conn.Query(queryHosts)
+	if err == nil {
+		defer hostRows.Close()
+		for hostRows.Next() {
+			var host string
+			var count int
+			if err := hostRows.Scan(&host, &count); err == nil {
+				if host == "" {
+					host = "unknown"
+				}
+				stats.HostCounts[host] = count
+			}
+		}
+	}
+
+	return stats, nil
+}

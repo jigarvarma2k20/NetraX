@@ -448,3 +448,13 @@ func (a *App) GetInterceptedResponses() ([]domain.HTTPTransactionDTO, error) {
 	}
 	return reqs, nil
 }
+
+func (a *App) GetAppStats() (*domain.AppStats, error) {
+	if a.DB != nil {
+		return a.DB.GetAppStats()
+	}
+	return &domain.AppStats{
+		MethodCounts: make(map[string]int),
+		HostCounts:   make(map[string]int),
+	}, nil
+}

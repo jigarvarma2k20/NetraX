@@ -224,3 +224,13 @@ func ToHTTPResponseDTO(resp *http.Response) HTTPResponseDTO {
 		Body:          bodyStr,
 	}
 }
+
+type AppStats struct {
+	TotalRequests        int            `json:"totalRequests"`
+	ResponsesCaptured    int            `json:"responsesCaptured"`
+	ErrorResponses       int            `json:"errorResponses"`
+	UniqueHosts          int            `json:"uniqueHosts"`
+	TotalResponseBytes   int64          `json:"totalResponseBytes"`
+	MethodCounts         map[string]int `json:"methodCounts"`
+	HostCounts           map[string]int `json:"hostCounts"`
+}
