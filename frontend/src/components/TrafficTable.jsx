@@ -155,59 +155,59 @@ export default function TrafficTable({
 
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-56 rounded-md border border-white/10 bg-[#101724] py-1 text-xs shadow-2xl"
+          className="fixed z-50 min-w-56 rounded-md border border-panel-border bg-panel-dark py-1 text-xs shadow-2xl"
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={() => runAction(onCopyUrl, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Copy URL
           </button>
           <button
             type="button"
             onClick={() => runAction(onCopyCurl, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Copy as cURL
           </button>
           <button
             type="button"
             onClick={() => runAction(onCopyPythonRequests, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Copy as requests (Python)
           </button>
           <button
             type="button"
             onClick={() => runAction(onCopyFetch, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Copy as fetch
           </button>
 
-          <div className="my-1 h-px bg-white/8" />
+          <div className="my-1 h-px bg-panel-border" />
 
           <button
             type="button"
             onClick={() => runAction(onSendToRepeater, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Send to Repeater
           </button>
           <button
             type="button"
             onClick={() => runAction(onSendToComparer, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Send to Comparer
           </button>
           <button
             type="button"
             onClick={() => runAction(onSendToAgent, contextMenu.txn)}
-            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-white/8 hover:text-white"
+            className="w-full px-3 py-2 text-left text-text-secondary hover:bg-surface-dark hover:text-text-primary transition-colors"
           >
             Send to AI Agent
           </button>
