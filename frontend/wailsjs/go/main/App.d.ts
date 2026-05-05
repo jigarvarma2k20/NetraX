@@ -62,7 +62,7 @@ export function ImportProject():Promise<void>;
 
 export function QuitApp():Promise<void>;
 
-export function RegenerateCA(arg1:string):Promise<void>;
+export function RegenerateCA():Promise<void>;
 
 export function ResetProject():Promise<void>;
 

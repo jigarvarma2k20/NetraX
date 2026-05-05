@@ -129,7 +129,7 @@ func SaveSettings(s Settings) error {
 	return os.WriteFile(settingsPath, data, 0644)
 }
 
-func GenerateCA(commonName string) error {
+func GenerateCA() error {
 	certPath, err := GetCertPath()
 	if err != nil {
 		return err
@@ -151,10 +151,16 @@ func GenerateCA(commonName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
-
+	pkixName := pkix.Name{
+		CommonName:         "NetraX CA",
+		Organization:       []string{"NetraX"},
+		OrganizationalUnit: []string{"NetraX CA"},
+		Country:            []string{"India"},
+	}
 	template := x509.Certificate{
 		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{CommonName: commonName},
+		Subject:               pkixName,
+		Issuer:                pkixName,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0), // 10 years validity
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
@@ -207,12 +213,12 @@ func EnsureCA() error {
 
 	if _, err := os.Stat(certPath); os.IsNotExist(err) {
 		log.Println("CA Certificate not found, generating a new one...")
-		return GenerateCA("NetraX Custom CA")
+		return GenerateCA()
 	}
 
 	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
 		log.Println("CA Key not found, generating a new one...")
-		return GenerateCA("NetraX Custom CA")
+		return GenerateCA()
 	}
 
 	return nil

@@ -114,8 +114,8 @@ export function QuitApp() {
   return window['go']['main']['App']['QuitApp']();
 }
 
-export function RegenerateCA(arg1) {
-  return window['go']['main']['App']['RegenerateCA'](arg1);
+export function RegenerateCA() {
+  return window['go']['main']['App']['RegenerateCA']();
 }
 
 export function ResetProject() {

@@ -31,13 +31,13 @@ import (
 
 // App struct
 type App struct {
-	ctx              context.Context
-	Proxy            *proxy.ProxyHandler
-	DB               *sqlite.DB
+	ctx               context.Context
+	Proxy             *proxy.ProxyHandler
+	DB                *sqlite.DB
 	activeProjectPath string
-	MCPServer        *mcp.MCPServer
-	autonomousCancel context.CancelFunc
-	chatCancel       context.CancelFunc
+	MCPServer         *mcp.MCPServer
+	autonomousCancel  context.CancelFunc
+	chatCancel        context.CancelFunc
 }
 
 // NewApp creates a new App application struct
@@ -378,8 +378,8 @@ func (a *App) GetCAInfo() CAInfo {
 }
 
 // RegenerateCA generates a new CA cert/key pair and restarts the proxy
-func (a *App) RegenerateCA(commonName string) error {
-	err := config.GenerateCA(commonName)
+func (a *App) RegenerateCA() error {
+	err := config.GenerateCA()
 	if err != nil {
 		return err
 	}

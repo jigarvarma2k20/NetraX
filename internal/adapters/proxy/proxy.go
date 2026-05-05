@@ -33,6 +33,46 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+var html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>NetraX Proxy</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 40px;
+      font-size: 22px;
+      color: #222;
+    }
+    .card {
+      border: 1px solid #ddd;
+      padding: 32px;
+      max-width: 700px;
+    }
+    h1 {
+      margin-bottom: 10px;
+      color: #f59e0b;
+    }
+    a {
+      color: #543cf3;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>NetraX Proxy</h1>
+
+    <p>This proxy is active and ready.</p>
+    <p><a href="/cert">Download Certificate</a></p>
+  </div>
+</body>
+</html>`
+
 type ProxyHandler struct {
 	Bindings                    []ports.ProxyBinding
 	Ctx                         context.Context // Context for the proxy operations
@@ -180,6 +220,29 @@ func (p *ProxyHandler) Start() {
 
 	// Create a new proxy instance
 	proxy := goproxy.NewProxyHttpServer()
+
+	// Serve a simple HTML page for direct access (non-proxy requests)
+	proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/" {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(html))
+			return
+		} else if req.URL.Path == "/cert" {
+			certPath, _ := config.GetCertPath()
+			caCertData, err := os.ReadFile(certPath)
+			if err != nil {
+				http.Error(w, "Certificate not found", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+			w.Header().Set("Content-Disposition", `attachment; filename="netrax-ca.crt"`)
+			w.WriteHeader(http.StatusOK)
+			w.Write(caCertData)
+			return
+		}
+		http.Error(w, "This is a proxy server. Does not respond to non-proxy requests.", http.StatusInternalServerError)
+	})
 
 	certPath, _ := config.GetCertPath()
 	keyPath, _ := config.GetKeyPath()
