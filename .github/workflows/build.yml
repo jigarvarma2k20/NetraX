@@ -1,0 +1,62 @@
+name: Wails build
+
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: 'netrax-linux-amd64'
+            platform: 'linux/amd64'
+            os: 'ubuntu-latest'
+
+          - name: 'netrax-linux-arm64'
+            platform: 'linux/arm64'
+            os: 'ubuntu-latest'
+
+          - name: 'netrax-linux-arm'
+            platform: 'linux/arm'
+            os: 'ubuntu-latest'
+
+          - name: 'netrax-windows-amd64.exe'
+            platform: 'windows/amd64'
+            os: 'windows-latest'
+
+          - name: 'netrax-windows-arm64.exe'
+            platform: 'windows/arm64'
+            os: 'windows-latest'
+
+          - name: 'netrax-windows-386.exe'
+            platform: 'windows/386'
+            os: 'windows-latest'
+
+          - name: 'netrax-macos-universal'
+            platform: 'darwin/universal'
+            os: 'macos-latest'
+
+    runs-on: ${{ matrix.build.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Build Wails
+        uses: dAppServer/wails-build-action@main
+        id: build
+        with:
+          build-name: ${{ matrix.build.name }}
+          build-platform: ${{ matrix.build.platform }}
+          package: true
