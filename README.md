@@ -44,6 +44,21 @@ Your dedicated cybersecurity copilot integrated directly into the proxy layout:
 - **Database:** SQLite (Ephemeral & Persistent tracking)
 
 
+## Screenshots
+
+| Screenshot 1 | Screenshot 2 |
+| ------------ | ------------ |
+| ![Screenshot 1](preview/0.png) | ![Screenshot 2](preview/1.png) |
+
+| Screenshot 3 | Screenshot 4 |
+| ------------ | ------------ |
+| ![Screenshot 3](preview/2.png) | ![Screenshot 4](preview/3.png) |
+
+| Screenshot 5 | Screenshot 6 |
+| ------------ | ------------ |
+| ![Screenshot 5](preview/4.png) | ![Screenshot 6](preview/5.png) |
+
+
 ## Setup & Running
 
 Prebuilt binaries are available on the [Releases](https://github.com/jigarvarma2k20/NetraX/releases) page.
